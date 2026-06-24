@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${'Reel ' + reel.reelIdInstagram + ' - MasakGramPrompt'}">Reel Detail</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=3)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Reel Detail</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a href="/dashboard">Dashboard</a>
+            <a class="active" th:href="@{/reels/{id}(id=${reel.reelId})}">Selected Reel</a>
+            <a href="#audio">Audio</a>
+            <a href="#transcript">Transcript</a>
+            <a href="#experiments">Experiments</a>
+            <a href="#nutrition">Nutrition</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <a class="back-link" href="/dashboard">Back to dashboard</a>
+                <h1 th:text="${reel.reelIdInstagram}">Reel ID</h1>
+                <p>
+                    <span th:text="${reel.influencerName}">Influencer</span>
+                    <span th:text="${'@' + reel.influencerAccount}">@account</span>
+                </p>
+            </div>
+            <div class="top-actions">
+                <a class="api-link" th:href="${reel.reelUrl}" target="_blank">Open Instagram</a>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="notice success" th:text="${successMessage}">
+            Experiment completed.
+        </div>
+        <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}">
+            Experiment failed.
+        </div>
+
+        <section class="summary-grid" aria-label="Reel readiness">
+            <article class="metric">
+                <span>Audio</span>
+                <strong th:text="${audio == null} ? 'Missing' : 'Ready'">Missing</strong>
+            </article>
+            <article class="metric">
+                <span>Transcript</span>
+                <strong th:text="${transcript == null} ? 'Pending' : 'Ready'">Pending</strong>
+            </article>
+            <article class="metric">
+                <span>Ground Truth</span>
+                <strong th:text="${reel.hasGroundTruth} ? 'Ready' : 'Pending'">Pending</strong>
+            </article>
+            <article class="metric">
+                <span>Experiments</span>
+                <strong>
+                    <span th:text="${reel.completedExperimentCount}">0</span>/<span th:text="${reel.experimentCount}">0</span>
+                </strong>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Reel Information</h2>
+                    <p>Source metadata from the `reel` table.</p>
+                </div>
+            </div>
+
+            <dl class="detail-grid">
+                <div>
+                    <dt>Database Reel ID</dt>
+                    <dd th:text="${reel.reelId}">1</dd>
+                </div>
+                <div>
+                    <dt>Instagram Reel ID</dt>
+                    <dd th:text="${reel.reelIdInstagram}">DV...</dd>
+                </div>
+                <div class="wide">
+                    <dt>Instagram URL</dt>
+                    <dd><a th:href="${reel.reelUrl}" target="_blank" th:text="${reel.reelUrl}">URL</a></dd>
+                </div>
+                <div>
+                    <dt>Identified By</dt>
+                    <dd>
+                        <strong th:text="${reel.identifiedByMatric}">Matric</strong>
+                        <span th:text="${reel.identifiedByName}">Name</span>
+                    </dd>
+                </div>
+                <div>
+                    <dt>Identified Date</dt>
+                    <dd th:text="${reel.identifiedDate}">2026-04-06</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section id="audio" class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Audio File</h2>
+                    <p>Expected next table after `reel`.</p>
+                </div>
+                <span th:class="${audio == null} ? 'badge missing' : 'badge ok'"
+                      th:text="${audio == null} ? 'Missing' : 'Ready'">Missing</span>
+            </div>
+
+            <div th:if="${audio == null}" class="empty-state">
+                Run the Week 04 transcriber/audio extraction step, then insert one row into `audio_file` for this Reel.
+            </div>
+
+            <dl th:if="${audio != null}" class="detail-grid">
+                <div>
+                    <dt>File Name</dt>
+                    <dd th:text="${audio.fileName}">file.mp3</dd>
+                </div>
+                <div>
+                    <dt>Format</dt>
+                    <dd th:text="${audio.fileFormat}">mp3</dd>
+                </div>
+                <div>
+                    <dt>Size</dt>
+                    <dd th:text="${audio.fileSizeBytes}">0</dd>
+                </div>
+                <div class="wide">
+                    <dt>File Path</dt>
+                    <dd th:text="${audio.filePath}">path</dd>
+                </div>
+                <div>
+                    <dt>Verified By</dt>
+                    <dd th:text="${audio.verifiedByName}">Verifier</dd>
+                </div>
+                <div>
+                    <dt>Consistent</dt>
+                    <dd th:text="${audio.reelAudioConsistent}">true</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section id="transcript" class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Transcript</h2>
+                    <p>Expected after audio extraction and Faster-Whisper transcription.</p>
+                </div>
+                <span th:class="${transcript == null} ? 'badge pending' : 'badge ok'"
+                      th:text="${transcript == null} ? 'Pending' : 'Ready'">Pending</span>
+            </div>
+
+            <div th:if="${transcript == null}" class="empty-state">
+                No transcript record exists yet. After Week 04 generates a `.txt` file, insert one row into `transcript`.
+            </div>
+
+            <dl th:if="${transcript != null}" class="detail-grid">
+                <div>
+                    <dt>Transcript ID</dt>
+                    <dd th:text="${transcript.transcriptId}">1</dd>
+                </div>
+                <div>
+                    <dt>File Name</dt>
+                    <dd th:text="${transcript.fileName}">file.txt</dd>
+                </div>
+                <div>
+                    <dt>Format</dt>
+                    <dd th:text="${transcript.fileFormat}">txt</dd>
+                </div>
+                <div class="wide">
+                    <dt>File Path</dt>
+                    <dd th:text="${transcript.filePath}">path</dd>
+                </div>
+                <div>
+                    <dt>Verified By</dt>
+                    <dd th:text="${transcript.verifiedByName}">Verifier</dd>
+                </div>
+                <div>
+                    <dt>Consistent</dt>
+                    <dd th:text="${transcript.audioTranscriptConsistent}">true</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section id="experiments" class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Experiments</h2>
+                    <p>LLM model and prompt technique runs for this transcript.</p>
+                </div>
+                <span class="badge neutral">
+                    <span th:text="${#lists.size(experiments)}">0</span> rows
+                </span>
+            </div>
+
+            <form class="run-form"
+                  method="post"
+                  th:action="@{/reels/{id}/experiments/run(id=${reel.reelId})}">
+                <label>
+                    <span>Model</span>
+                    <select name="modelId" aria-label="Model">
+                        <option th:each="model : ${models}"
+                                th:value="${model.modelId}"
+                                th:text="${model.modelName + ' (' + model.modelTag + ')'}">
+                            Llama
+                        </option>
+                    </select>
+                </label>
+                <label>
+                    <span>Prompt Technique</span>
+                    <select name="techniqueId" aria-label="Prompt technique">
+                        <option th:each="technique : ${techniques}"
+                                th:value="${technique.techniqueId}"
+                                th:selected="${technique.techniqueName == 'structured-output'}"
+                                th:text="${technique.techniqueName}">
+                            structured-output
+                        </option>
+                    </select>
+                </label>
+                <button type="submit" th:disabled="${transcript == null}">
+                    Run Experiment
+                </button>
+            </form>
+
+            <div th:if="${#lists.isEmpty(experiments)}" class="empty-state">
+                No experiment records yet. Start later with 1 transcript, 1 model, and 1 prompt technique.
+            </div>
+
+            <div th:if="${!#lists.isEmpty(experiments)}" class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Model</th>
+                        <th>Prompt Technique</th>
+                        <th>RAG</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                        <th>Executed At</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="experiment : ${experiments}">
+                        <td th:text="${experiment.experimentId}">1</td>
+                        <td>
+                            <strong th:text="${experiment.modelName}">Model</strong>
+                            <span class="muted" th:text="${experiment.modelTag}">tag</span>
+                        </td>
+                        <td th:text="${experiment.techniqueName}">structured-output</td>
+                        <td th:text="${experiment.ragEnabled}">false</td>
+                        <td><span class="badge neutral" th:text="${experiment.status}">pending</span></td>
+                        <td th:text="${experiment.processingTimeMs == null ? '-' : #numbers.formatDecimal(experiment.processingTimeMs / 1000.0, 1, 1) + ' s'}">-</td>
+                        <td th:text="${experiment.executedAt}">time</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="nutrition" class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Nutrition Result</h2>
+                    <p>Stored output from the `nutrition_result` table for this Reel.</p>
+                </div>
+                <span class="badge neutral">
+                    <span th:text="${#lists.size(nutritionResults)}">0</span> rows
+                </span>
+            </div>
+
+            <div th:if="${#lists.isEmpty(nutritionResults)}" class="empty-state">
+                No nutrition result is stored yet. Run one LLM experiment and save its JSON output.
+            </div>
+
+            <div th:each="result : ${nutritionResults}" class="result-block">
+                <div class="result-title">
+                    <div>
+                        <h3 th:text="${result.recipeName}">Recipe name</h3>
+                        <span class="muted">
+                            <span th:text="${result.modelName}">Model</span>
+                            <span th:text="${' - ' + result.techniqueName}">Technique</span>
+                        </span>
+                    </div>
+                    <span th:class="${result.jsonValid == true} ? 'badge ok' : 'badge missing'"
+                          th:text="${result.jsonValid == true} ? 'Valid JSON' : 'Invalid JSON'">Valid JSON</span>
+                </div>
+
+                <dl class="detail-grid result-grid">
+                    <div>
+                        <dt>Servings</dt>
+                        <dd th:text="${result.servingsEstimated}">0</dd>
+                    </div>
+                    <div>
+                        <dt>Total Calories</dt>
+                        <dd th:text="${result.totalCalories}">0</dd>
+                    </div>
+                    <div>
+                        <dt>Per Serving Calories</dt>
+                        <dd th:text="${result.servingCalories}">0</dd>
+                    </div>
+                    <div>
+                        <dt>Per Serving Protein</dt>
+                        <dd th:text="${result.servingProteinG}">0</dd>
+                    </div>
+                    <div>
+                        <dt>Per Serving Carbs</dt>
+                        <dd th:text="${result.servingCarbohydrateG}">0</dd>
+                    </div>
+                    <div>
+                        <dt>Per Serving Fat</dt>
+                        <dd th:text="${result.servingTotalFatG}">0</dd>
+                    </div>
+                    <div class="wide technical-output">
+                        <details>
+                            <summary>Technical JSON response</summary>
+                            <pre th:text="${result.rawJsonOutput}">{}</pre>
+                        </details>
+                    </div>
+                </dl>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
