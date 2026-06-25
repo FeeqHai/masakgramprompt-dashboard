@@ -225,11 +225,22 @@ public class DashboardService {
                     e.rag_enabled,
                     e.status,
                     e.executed_at,
-                    e.processing_time_ms
+                    e.processing_time_ms,
+                    nr.result_id AS nutrition_result_id,
+                    nr.json_valid AS nutrition_json_valid,
+                    nr.recipe_name AS nutrition_recipe_name,
+                    nr.servings_estimated AS nutrition_servings_estimated,
+                    nr.total_calories AS nutrition_total_calories,
+                    nr.serving_calories AS nutrition_serving_calories,
+                    nr.serving_protein_g AS nutrition_serving_protein_g,
+                    nr.serving_carbohydrate_g AS nutrition_serving_carbohydrate_g,
+                    nr.serving_total_fat_g AS nutrition_serving_total_fat_g,
+                    nr.raw_json_output AS nutrition_raw_json_output
                 FROM experiment e
                 JOIN transcript t ON t.transcript_id = e.transcript_id
                 JOIN llm_model lm ON lm.model_id = e.model_id
                 JOIN prompt_technique pt ON pt.technique_id = e.technique_id
+                LEFT JOIN nutrition_result nr ON nr.experiment_id = e.experiment_id
                 WHERE t.reel_id = ?
                 ORDER BY e.experiment_id
                 """;
@@ -246,6 +257,18 @@ public class DashboardService {
             experiment.setExecutedAt(toLocalDateTime(rs.getTimestamp("executed_at")));
             long processingTimeMs = rs.getLong("processing_time_ms");
             experiment.setProcessingTimeMs(rs.wasNull() ? null : processingTimeMs);
+            int nutritionResultId = rs.getInt("nutrition_result_id");
+            experiment.setNutritionResultId(rs.wasNull() ? null : nutritionResultId);
+            experiment.setNutritionJsonValid(getBooleanOrNull(rs.getObject("nutrition_json_valid")));
+            experiment.setNutritionRecipeName(rs.getString("nutrition_recipe_name"));
+            int servings = rs.getInt("nutrition_servings_estimated");
+            experiment.setNutritionServingsEstimated(rs.wasNull() ? null : servings);
+            experiment.setNutritionTotalCalories(getFloatOrNull(rs.getObject("nutrition_total_calories")));
+            experiment.setNutritionServingCalories(getFloatOrNull(rs.getObject("nutrition_serving_calories")));
+            experiment.setNutritionServingProteinG(getFloatOrNull(rs.getObject("nutrition_serving_protein_g")));
+            experiment.setNutritionServingCarbohydrateG(getFloatOrNull(rs.getObject("nutrition_serving_carbohydrate_g")));
+            experiment.setNutritionServingTotalFatG(getFloatOrNull(rs.getObject("nutrition_serving_total_fat_g")));
+            experiment.setNutritionRawJsonOutput(rs.getString("nutrition_raw_json_output"));
             return experiment;
         }, reelId);
     }

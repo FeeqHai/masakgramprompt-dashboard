@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${'Reel ' + reel.reelIdInstagram + ' - MasakGramPrompt'}">Reel Detail</title>
-    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=3)}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=7)}">
 </head>
 <body>
 <div class="app-shell">
@@ -23,7 +23,6 @@
             <a href="#audio">Audio</a>
             <a href="#transcript">Transcript</a>
             <a href="#experiments">Experiments</a>
-            <a href="#nutrition">Nutrition</a>
         </nav>
     </aside>
 
@@ -201,11 +200,12 @@
             </div>
 
             <form class="run-form"
+                  id="singleExperimentForm"
                   method="post"
                   th:action="@{/reels/{id}/experiments/run(id=${reel.reelId})}">
                 <label>
                     <span>Model</span>
-                    <select name="modelId" aria-label="Model">
+                    <select id="singleExperimentModel" name="modelId" aria-label="Model">
                         <option th:each="model : ${models}"
                                 th:value="${model.modelId}"
                                 th:text="${model.modelName + ' (' + model.modelTag + ')'}">
@@ -215,7 +215,7 @@
                 </label>
                 <label>
                     <span>Prompt Technique</span>
-                    <select name="techniqueId" aria-label="Prompt technique">
+                    <select id="singleExperimentTechnique" name="techniqueId" aria-label="Prompt technique">
                         <option th:each="technique : ${techniques}"
                                 th:value="${technique.techniqueId}"
                                 th:selected="${technique.techniqueName == 'structured-output'}"
@@ -224,10 +224,27 @@
                         </option>
                     </select>
                 </label>
-                <button type="submit" th:disabled="${transcript == null}">
+                <button id="singleExperimentButton" type="submit" th:disabled="${transcript == null}">
                     Run Experiment
                 </button>
             </form>
+
+            <div id="singleExperimentProgress" class="single-experiment-progress" hidden>
+                <div class="batch-progress-header">
+                    <span class="badge pending">Running</span>
+                    <strong>Single experiment is processing</strong>
+                    <span>Elapsed: <strong id="singleExperimentElapsed">0s</strong></span>
+                </div>
+                <progress aria-label="Single experiment progress"></progress>
+                <div class="batch-progress-details">
+                    <span>Model: <strong id="singleExperimentModelName">-</strong></span>
+                    <span>Prompt: <strong id="singleExperimentTechniqueName">-</strong></span>
+                    <span>Stage: <strong id="singleExperimentStage">Preparing request</strong></span>
+                </div>
+                <p>
+                    Ollama is using your computer to generate the nutrition JSON. This page will continue after the model finishes.
+                </p>
+            </div>
 
             <div th:if="${#lists.isEmpty(experiments)}" class="empty-state">
                 No experiment records yet. Start later with 1 transcript, 1 model, and 1 prompt technique.
@@ -244,6 +261,7 @@
                         <th>Status</th>
                         <th>Time</th>
                         <th>Executed At</th>
+                        <th>Nutrition Result</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -258,75 +276,258 @@
                         <td><span class="badge neutral" th:text="${experiment.status}">pending</span></td>
                         <td th:text="${experiment.processingTimeMs == null ? '-' : #numbers.formatDecimal(experiment.processingTimeMs / 1000.0, 1, 1) + ' s'}">-</td>
                         <td th:text="${experiment.executedAt}">time</td>
+                        <td>
+                            <span th:if="${experiment.nutritionResultId == null}" class="badge missing">No result</span>
+                            <button th:if="${experiment.nutritionResultId != null and experiment.nutritionJsonValid == true}"
+                                    type="button"
+                                    class="small-button result-modal-trigger"
+                                    th:data-result-id="${experiment.nutritionResultId}">
+                                View Result
+                            </button>
+                            <button th:if="${experiment.nutritionResultId != null and experiment.nutritionJsonValid != true}"
+                                    type="button"
+                                    class="small-button result-modal-trigger"
+                                    th:data-result-id="${experiment.nutritionResultId}">
+                                View Raw JSON
+                            </button>
+                            <span th:if="${experiment.nutritionRecipeName != null}"
+                                  class="muted"
+                                  th:text="${experiment.nutritionRecipeName}">Recipe</span>
+                            <div th:if="${experiment.nutritionResultId != null}"
+                                 class="nutrition-modal-source"
+                                 hidden
+                                 th:id="${'nutrition-modal-source-' + experiment.nutritionResultId}">
+                                <span data-field="resultId" th:text="${experiment.nutritionResultId}">1</span>
+                                <span data-field="experimentId" th:text="${experiment.experimentId}">1</span>
+                                <span data-field="modelName" th:text="${experiment.modelName}">Model</span>
+                                <span data-field="modelTag" th:text="${experiment.modelTag}">tag</span>
+                                <span data-field="techniqueName" th:text="${experiment.techniqueName}">structured-output</span>
+                                <span data-field="status" th:text="${experiment.status}">completed</span>
+                                <span data-field="jsonValid" th:text="${experiment.nutritionJsonValid == true}">true</span>
+                                <span data-field="jsonStatus"
+                                      th:text="${experiment.nutritionJsonValid == true} ? 'Valid JSON' : 'Invalid JSON'">Valid JSON</span>
+                                <span data-field="recipeName"
+                                      th:text="${experiment.nutritionRecipeName == null ? '-' : experiment.nutritionRecipeName}">Recipe</span>
+                                <span data-field="servings"
+                                      th:text="${experiment.nutritionServingsEstimated == null ? '-' : experiment.nutritionServingsEstimated}">0</span>
+                                <span data-field="totalCalories"
+                                      th:text="${experiment.nutritionTotalCalories == null ? '-' : experiment.nutritionTotalCalories}">0</span>
+                                <span data-field="servingCalories"
+                                      th:text="${experiment.nutritionServingCalories == null ? '-' : experiment.nutritionServingCalories}">0</span>
+                                <span data-field="servingProtein"
+                                      th:text="${experiment.nutritionServingProteinG == null ? '-' : experiment.nutritionServingProteinG}">0</span>
+                                <span data-field="servingCarbs"
+                                      th:text="${experiment.nutritionServingCarbohydrateG == null ? '-' : experiment.nutritionServingCarbohydrateG}">0</span>
+                                <span data-field="servingFat"
+                                      th:text="${experiment.nutritionServingTotalFatG == null ? '-' : experiment.nutritionServingTotalFatG}">0</span>
+                                <pre data-field="rawJson" th:text="${experiment.nutritionRawJsonOutput}">{}</pre>
+                            </div>
+                        </td>
                     </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section id="nutrition" class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>Nutrition Result</h2>
-                    <p>Stored output from the `nutrition_result` table for this Reel.</p>
-                </div>
-                <span class="badge neutral">
-                    <span th:text="${#lists.size(nutritionResults)}">0</span> rows
-                </span>
-            </div>
-
-            <div th:if="${#lists.isEmpty(nutritionResults)}" class="empty-state">
-                No nutrition result is stored yet. Run one LLM experiment and save its JSON output.
-            </div>
-
-            <div th:each="result : ${nutritionResults}" class="result-block">
-                <div class="result-title">
-                    <div>
-                        <h3 th:text="${result.recipeName}">Recipe name</h3>
-                        <span class="muted">
-                            <span th:text="${result.modelName}">Model</span>
-                            <span th:text="${' - ' + result.techniqueName}">Technique</span>
-                        </span>
-                    </div>
-                    <span th:class="${result.jsonValid == true} ? 'badge ok' : 'badge missing'"
-                          th:text="${result.jsonValid == true} ? 'Valid JSON' : 'Invalid JSON'">Valid JSON</span>
-                </div>
-
-                <dl class="detail-grid result-grid">
-                    <div>
-                        <dt>Servings</dt>
-                        <dd th:text="${result.servingsEstimated}">0</dd>
-                    </div>
-                    <div>
-                        <dt>Total Calories</dt>
-                        <dd th:text="${result.totalCalories}">0</dd>
-                    </div>
-                    <div>
-                        <dt>Per Serving Calories</dt>
-                        <dd th:text="${result.servingCalories}">0</dd>
-                    </div>
-                    <div>
-                        <dt>Per Serving Protein</dt>
-                        <dd th:text="${result.servingProteinG}">0</dd>
-                    </div>
-                    <div>
-                        <dt>Per Serving Carbs</dt>
-                        <dd th:text="${result.servingCarbohydrateG}">0</dd>
-                    </div>
-                    <div>
-                        <dt>Per Serving Fat</dt>
-                        <dd th:text="${result.servingTotalFatG}">0</dd>
-                    </div>
-                    <div class="wide technical-output">
-                        <details>
-                            <summary>Technical JSON response</summary>
-                            <pre th:text="${result.rawJsonOutput}">{}</pre>
-                        </details>
-                    </div>
-                </dl>
-            </div>
-        </section>
     </main>
 </div>
+
+<div id="nutritionModal" class="modal-overlay" hidden aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="nutritionModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 id="nutritionModalTitle">Nutrition Result</h2>
+                <p>Result connected to the selected experiment row.</p>
+            </div>
+            <button type="button" class="modal-close" id="nutritionModalClose" aria-label="Close modal">Close</button>
+        </div>
+
+        <div id="nutritionModalWarning" class="notice warning" hidden>
+            This model returned invalid JSON. Summary fields may be empty, but the raw response is stored below.
+        </div>
+
+        <dl class="detail-grid modal-detail-grid">
+            <div>
+                <dt>Nutrition Result ID</dt>
+                <dd id="modalResultId">-</dd>
+            </div>
+            <div>
+                <dt>Experiment ID</dt>
+                <dd id="modalExperimentId">-</dd>
+            </div>
+            <div>
+                <dt>Model Name</dt>
+                <dd id="modalModelName">-</dd>
+            </div>
+            <div>
+                <dt>Model Tag</dt>
+                <dd id="modalModelTag">-</dd>
+            </div>
+            <div>
+                <dt>Prompt Technique</dt>
+                <dd id="modalTechniqueName">-</dd>
+            </div>
+            <div>
+                <dt>Experiment Status</dt>
+                <dd id="modalExperimentStatus">-</dd>
+            </div>
+            <div>
+                <dt>JSON Status</dt>
+                <dd><span id="modalJsonStatus" class="badge neutral modal-status-badge">-</span></dd>
+            </div>
+            <div>
+                <dt>Recipe Name</dt>
+                <dd id="modalRecipeName">-</dd>
+            </div>
+            <div>
+                <dt>Servings</dt>
+                <dd id="modalServings">-</dd>
+            </div>
+            <div>
+                <dt>Total Calories</dt>
+                <dd id="modalTotalCalories">-</dd>
+            </div>
+            <div>
+                <dt>Per Serving Calories</dt>
+                <dd id="modalServingCalories">-</dd>
+            </div>
+            <div>
+                <dt>Per Serving Protein</dt>
+                <dd id="modalServingProtein">-</dd>
+            </div>
+            <div>
+                <dt>Per Serving Carbs</dt>
+                <dd id="modalServingCarbs">-</dd>
+            </div>
+            <div>
+                <dt>Per Serving Fat</dt>
+                <dd id="modalServingFat">-</dd>
+            </div>
+            <div class="wide">
+                <dt>Raw JSON Response</dt>
+                <dd><pre id="modalRawJson" class="modal-raw-json">{}</pre></dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById('nutritionModal');
+        const closeButton = document.getElementById('nutritionModalClose');
+        const warning = document.getElementById('nutritionModalWarning');
+        const jsonStatus = document.getElementById('modalJsonStatus');
+        const experimentForm = document.getElementById('singleExperimentForm');
+        const experimentButton = document.getElementById('singleExperimentButton');
+        const experimentProgress = document.getElementById('singleExperimentProgress');
+        const experimentModel = document.getElementById('singleExperimentModel');
+        const experimentTechnique = document.getElementById('singleExperimentTechnique');
+        const experimentModelName = document.getElementById('singleExperimentModelName');
+        const experimentTechniqueName = document.getElementById('singleExperimentTechniqueName');
+        const experimentElapsed = document.getElementById('singleExperimentElapsed');
+        const experimentStage = document.getElementById('singleExperimentStage');
+
+        function sourceText(source, fieldName) {
+            const element = source.querySelector('[data-field="' + fieldName + '"]');
+            return element ? element.textContent : '-';
+        }
+
+        function setText(id, value) {
+            document.getElementById(id).textContent = value || '-';
+        }
+
+        function openModal(resultId) {
+            const source = document.getElementById('nutrition-modal-source-' + resultId);
+            if (!source) {
+                return;
+            }
+
+            const isValidJson = sourceText(source, 'jsonValid') === 'true';
+
+            setText('modalResultId', sourceText(source, 'resultId'));
+            setText('modalExperimentId', sourceText(source, 'experimentId'));
+            setText('modalModelName', sourceText(source, 'modelName'));
+            setText('modalModelTag', sourceText(source, 'modelTag'));
+            setText('modalTechniqueName', sourceText(source, 'techniqueName'));
+            setText('modalExperimentStatus', sourceText(source, 'status'));
+            setText('modalRecipeName', sourceText(source, 'recipeName'));
+            setText('modalServings', sourceText(source, 'servings'));
+            setText('modalTotalCalories', sourceText(source, 'totalCalories'));
+            setText('modalServingCalories', sourceText(source, 'servingCalories'));
+            setText('modalServingProtein', sourceText(source, 'servingProtein'));
+            setText('modalServingCarbs', sourceText(source, 'servingCarbs'));
+            setText('modalServingFat', sourceText(source, 'servingFat'));
+            setText('modalRawJson', sourceText(source, 'rawJson'));
+
+            jsonStatus.textContent = sourceText(source, 'jsonStatus');
+            jsonStatus.className = isValidJson ? 'badge ok modal-status-badge' : 'badge missing modal-status-badge';
+            warning.hidden = isValidJson;
+
+            modal.hidden = false;
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+            closeButton.focus();
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('modal-open');
+        }
+
+        document.querySelectorAll('.result-modal-trigger').forEach(function (button) {
+            button.addEventListener('click', function () {
+                openModal(button.dataset.resultId);
+            });
+        });
+
+        closeButton.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+
+        if (experimentForm) {
+            experimentForm.addEventListener('submit', function () {
+                if (experimentButton.disabled) {
+                    return;
+                }
+
+                const startedAt = Date.now();
+                const stages = [
+                    'Reading transcript file',
+                    'Building prompt',
+                    'Waiting for Ollama response',
+                    'Parsing JSON output',
+                    'Saving result to database'
+                ];
+
+                experimentModelName.textContent = experimentModel.options[experimentModel.selectedIndex].text;
+                experimentTechniqueName.textContent = experimentTechnique.options[experimentTechnique.selectedIndex].text;
+                experimentProgress.hidden = false;
+                experimentButton.disabled = true;
+                experimentButton.textContent = 'Running...';
+                experimentStage.textContent = stages[0];
+                experimentProgress.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                window.setInterval(function () {
+                    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+                    experimentElapsed.textContent = seconds + 's';
+
+                    const stageIndex = Math.min(stages.length - 1, Math.floor(seconds / 8));
+                    experimentStage.textContent = stages[stageIndex];
+                }, 1000);
+            });
+        }
+    }());
+</script>
 </body>
 </html>

@@ -120,8 +120,8 @@ public class ExcelExportService {
         int[] widths = {14, 10, 20, 28, 24, 22, 22, 14, 20, 28, 10, 12, 16, 18, 24, 16, 18, 20, 27, 18, 70};
         setColumnWidths(sheet, widths);
         sheet.createFreezePane(0, 1);
-        sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, 0, Math.max(0, rowIndex - 1), headers.length - 1));
-    }
+        sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(0, rowIndex - 1), 0, headers.length - 1));
+       }
 
     private void createIngredientsSheet(
             XSSFWorkbook workbook,
@@ -153,7 +153,7 @@ public class ExcelExportService {
         int[] widths = {14, 10, 20, 24, 22, 28, 28, 12, 18, 18, 20, 14, 14, 20, 14};
         setColumnWidths(sheet, widths);
         sheet.createFreezePane(0, 1);
-        sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, 0, Math.max(0, rowIndex - 1), headers.length - 1));
+        sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(0, rowIndex - 1), 0, headers.length - 1));
     }
 
     private CellStyle createHeaderStyle(XSSFWorkbook workbook) {

@@ -13,6 +13,16 @@ public class ExperimentRecord {
     private String status;
     private LocalDateTime executedAt;
     private Long processingTimeMs;
+    private Integer nutritionResultId;
+    private Boolean nutritionJsonValid;
+    private String nutritionRecipeName;
+    private Integer nutritionServingsEstimated;
+    private Float nutritionTotalCalories;
+    private Float nutritionServingCalories;
+    private Float nutritionServingProteinG;
+    private Float nutritionServingCarbohydrateG;
+    private Float nutritionServingTotalFatG;
+    private String nutritionRawJsonOutput;
 
     public int getExperimentId() {
         return experimentId;
@@ -84,5 +94,85 @@ public class ExperimentRecord {
 
     public void setProcessingTimeMs(Long processingTimeMs) {
         this.processingTimeMs = processingTimeMs;
+    }
+
+    public Integer getNutritionResultId() {
+        return nutritionResultId;
+    }
+
+    public void setNutritionResultId(Integer nutritionResultId) {
+        this.nutritionResultId = nutritionResultId;
+    }
+
+    public Boolean getNutritionJsonValid() {
+        return nutritionJsonValid;
+    }
+
+    public void setNutritionJsonValid(Boolean nutritionJsonValid) {
+        this.nutritionJsonValid = nutritionJsonValid;
+    }
+
+    public String getNutritionRecipeName() {
+        return nutritionRecipeName;
+    }
+
+    public void setNutritionRecipeName(String nutritionRecipeName) {
+        this.nutritionRecipeName = nutritionRecipeName;
+    }
+
+    public Integer getNutritionServingsEstimated() {
+        return nutritionServingsEstimated;
+    }
+
+    public void setNutritionServingsEstimated(Integer nutritionServingsEstimated) {
+        this.nutritionServingsEstimated = nutritionServingsEstimated;
+    }
+
+    public Float getNutritionTotalCalories() {
+        return nutritionTotalCalories;
+    }
+
+    public void setNutritionTotalCalories(Float nutritionTotalCalories) {
+        this.nutritionTotalCalories = nutritionTotalCalories;
+    }
+
+    public Float getNutritionServingCalories() {
+        return nutritionServingCalories;
+    }
+
+    public void setNutritionServingCalories(Float nutritionServingCalories) {
+        this.nutritionServingCalories = nutritionServingCalories;
+    }
+
+    public Float getNutritionServingProteinG() {
+        return nutritionServingProteinG;
+    }
+
+    public void setNutritionServingProteinG(Float nutritionServingProteinG) {
+        this.nutritionServingProteinG = nutritionServingProteinG;
+    }
+
+    public Float getNutritionServingCarbohydrateG() {
+        return nutritionServingCarbohydrateG;
+    }
+
+    public void setNutritionServingCarbohydrateG(Float nutritionServingCarbohydrateG) {
+        this.nutritionServingCarbohydrateG = nutritionServingCarbohydrateG;
+    }
+
+    public Float getNutritionServingTotalFatG() {
+        return nutritionServingTotalFatG;
+    }
+
+    public void setNutritionServingTotalFatG(Float nutritionServingTotalFatG) {
+        this.nutritionServingTotalFatG = nutritionServingTotalFatG;
+    }
+
+    public String getNutritionRawJsonOutput() {
+        return nutritionRawJsonOutput;
+    }
+
+    public void setNutritionRawJsonOutput(String nutritionRawJsonOutput) {
+        this.nutritionRawJsonOutput = nutritionRawJsonOutput;
     }
 }

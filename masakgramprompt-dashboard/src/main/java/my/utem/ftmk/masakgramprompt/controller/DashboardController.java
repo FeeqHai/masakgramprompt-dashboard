@@ -149,6 +149,6 @@ public class DashboardController {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }
 
-        return "redirect:/reels/" + reelId + "#nutrition";
+        return "redirect:/reels/" + reelId + "#experiments";
     }
 }
