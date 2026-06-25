@@ -3,8 +3,11 @@ package my.utem.ftmk.masakgramprompt.service;
 import my.utem.ftmk.masakgramprompt.model.AudioFileRecord;
 import my.utem.ftmk.masakgramprompt.model.DashboardSummary;
 import my.utem.ftmk.masakgramprompt.model.ExperimentRecord;
+import my.utem.ftmk.masakgramprompt.model.IngredientResultRecord;
 import my.utem.ftmk.masakgramprompt.model.LlmModelOption;
+import my.utem.ftmk.masakgramprompt.model.ModelProcessingSummary;
 import my.utem.ftmk.masakgramprompt.model.NutritionResultRecord;
+import my.utem.ftmk.masakgramprompt.model.ProcessingTimeSummary;
 import my.utem.ftmk.masakgramprompt.model.PromptTechniqueOption;
 import my.utem.ftmk.masakgramprompt.model.Reel;
 import my.utem.ftmk.masakgramprompt.model.TranscriptRecord;
@@ -14,11 +17,21 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class DashboardService {
+
+    private static final List<String> PROMPT_TECHNIQUE_ORDER = List.of(
+            "zero-shot",
+            "few-shot",
+            "chain-of-thought",
+            "structured-output"
+    );
 
     private final JdbcTemplate jdbcTemplate;
     private final RowMapper<Reel> reelRowMapper = (rs, rowNum) -> {
@@ -55,6 +68,92 @@ public class DashboardService {
         summary.setRunningExperimentCount(countExperimentsByStatus("running"));
         summary.setCompletedExperimentCount(countExperimentsByStatus("completed"));
         summary.setFailedExperimentCount(countExperimentsByStatus("failed"));
+        return summary;
+    }
+
+    public List<ProcessingTimeSummary> findProcessingTimeSummary() {
+        String sql = """
+                SELECT
+                    lm.model_name,
+                    lm.model_tag,
+                    pt.technique_name,
+                    COUNT(*) AS completed_runs,
+                    ROUND(AVG(e.processing_time_ms) / 1000, 1) AS avg_seconds,
+                    ROUND(MIN(e.processing_time_ms) / 1000, 1) AS min_seconds,
+                    ROUND(MAX(e.processing_time_ms) / 1000, 1) AS max_seconds
+                FROM experiment e
+                JOIN llm_model lm ON lm.model_id = e.model_id
+                JOIN prompt_technique pt ON pt.technique_id = e.technique_id
+                WHERE e.status = 'completed'
+                  AND e.processing_time_ms IS NOT NULL
+                GROUP BY lm.model_name, lm.model_tag, pt.technique_name
+                ORDER BY lm.model_name, pt.technique_name
+                """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            ProcessingTimeSummary summary = new ProcessingTimeSummary();
+            summary.setModelName(rs.getString("model_name"));
+            summary.setModelTag(rs.getString("model_tag"));
+            summary.setTechniqueName(rs.getString("technique_name"));
+            summary.setCompletedRuns(rs.getInt("completed_runs"));
+            summary.setAverageSeconds(getDoubleOrNull(rs.getObject("avg_seconds")));
+            summary.setMinSeconds(getDoubleOrNull(rs.getObject("min_seconds")));
+            summary.setMaxSeconds(getDoubleOrNull(rs.getObject("max_seconds")));
+            return summary;
+        });
+    }
+
+    public List<ModelProcessingSummary> findModelProcessingSummaries() {
+        Map<String, ModelProcessingSummary> summariesByModel = new LinkedHashMap<>();
+        Map<String, Map<String, ProcessingTimeSummary>> timingsByModel = new LinkedHashMap<>();
+
+        for (ProcessingTimeSummary timing : findProcessingTimeSummary()) {
+            String modelKey = timing.getModelName() + "|" + timing.getModelTag();
+
+            summariesByModel.computeIfAbsent(modelKey, key -> {
+                ModelProcessingSummary modelSummary = new ModelProcessingSummary();
+                modelSummary.setModelName(timing.getModelName());
+                modelSummary.setModelTag(timing.getModelTag());
+                return modelSummary;
+            });
+
+            timingsByModel
+                    .computeIfAbsent(modelKey, key -> new LinkedHashMap<>())
+                    .put(timing.getTechniqueName(), timing);
+        }
+
+        for (Map.Entry<String, ModelProcessingSummary> entry : summariesByModel.entrySet()) {
+            Map<String, ProcessingTimeSummary> modelTimings = timingsByModel.get(entry.getKey());
+            List<ProcessingTimeSummary> techniqueSummaries = new ArrayList<>();
+            ProcessingTimeSummary fastest = null;
+
+            for (String techniqueName : PROMPT_TECHNIQUE_ORDER) {
+                ProcessingTimeSummary timing = modelTimings.get(techniqueName);
+                if (timing == null) {
+                    timing = emptyTechniqueSummary(entry.getValue(), techniqueName);
+                }
+
+                techniqueSummaries.add(timing);
+
+                if (timing.getAverageSeconds() != null
+                        && (fastest == null || timing.getAverageSeconds() < fastest.getAverageSeconds())) {
+                    fastest = timing;
+                }
+            }
+
+            entry.getValue().setTechniqueSummaries(techniqueSummaries);
+            entry.getValue().setFastestTechniqueName(fastest == null ? "No data" : fastest.getTechniqueName());
+        }
+
+        return new ArrayList<>(summariesByModel.values());
+    }
+
+    private ProcessingTimeSummary emptyTechniqueSummary(ModelProcessingSummary modelSummary, String techniqueName) {
+        ProcessingTimeSummary summary = new ProcessingTimeSummary();
+        summary.setModelName(modelSummary.getModelName());
+        summary.setModelTag(modelSummary.getModelTag());
+        summary.setTechniqueName(techniqueName);
+        summary.setCompletedRuns(0);
         return summary;
     }
 
@@ -326,6 +425,65 @@ public class DashboardService {
         }, reelId);
     }
 
+    public List<IngredientResultRecord> findIngredientResultsByReelId(int reelId) {
+        String sql = """
+                SELECT
+                    ir.ingredient_id,
+                    ir.result_id,
+                    ir.name_original,
+                    ir.name_en,
+                    ir.quantity_value,
+                    ir.unit_original,
+                    ir.unit_en,
+                    ir.estimated_weight_g,
+                    ir.calories,
+                    ir.total_fat_g,
+                    ir.saturated_fat_g,
+                    ir.cholesterol_mg,
+                    ir.sodium_mg,
+                    ir.total_carbohydrate_g,
+                    ir.dietary_fiber_g,
+                    ir.total_sugars_g,
+                    ir.protein_g,
+                    ir.vitamin_d_mcg,
+                    ir.calcium_mg,
+                    ir.iron_mg,
+                    ir.potassium_mg
+                FROM ingredient_result ir
+                JOIN nutrition_result nr ON nr.result_id = ir.result_id
+                JOIN experiment e ON e.experiment_id = nr.experiment_id
+                JOIN transcript t ON t.transcript_id = e.transcript_id
+                WHERE t.reel_id = ?
+                ORDER BY nr.result_id, ir.ingredient_id
+                """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            IngredientResultRecord ingredient = new IngredientResultRecord();
+            ingredient.setIngredientResultId(rs.getInt("ingredient_id"));
+            ingredient.setResultId(rs.getInt("result_id"));
+            ingredient.setNameOriginal(rs.getString("name_original"));
+            ingredient.setNameEn(rs.getString("name_en"));
+            ingredient.setQuantityValue(getFloatOrNull(rs.getObject("quantity_value")));
+            ingredient.setUnitOriginal(rs.getString("unit_original"));
+            ingredient.setUnitEn(rs.getString("unit_en"));
+            ingredient.setEstimatedWeightG(getFloatOrNull(rs.getObject("estimated_weight_g")));
+            ingredient.setCalories(getFloatOrNull(rs.getObject("calories")));
+            ingredient.setTotalFatG(getFloatOrNull(rs.getObject("total_fat_g")));
+            ingredient.setSaturatedFatG(getFloatOrNull(rs.getObject("saturated_fat_g")));
+            ingredient.setCholesterolMg(getFloatOrNull(rs.getObject("cholesterol_mg")));
+            ingredient.setSodiumMg(getFloatOrNull(rs.getObject("sodium_mg")));
+            ingredient.setTotalCarbohydrateG(getFloatOrNull(rs.getObject("total_carbohydrate_g")));
+            ingredient.setDietaryFiberG(getFloatOrNull(rs.getObject("dietary_fiber_g")));
+            ingredient.setTotalSugarsG(getFloatOrNull(rs.getObject("total_sugars_g")));
+            ingredient.setProteinG(getFloatOrNull(rs.getObject("protein_g")));
+            ingredient.setVitaminDMcg(getFloatOrNull(rs.getObject("vitamin_d_mcg")));
+            ingredient.setCalciumMg(getFloatOrNull(rs.getObject("calcium_mg")));
+            ingredient.setIronMg(getFloatOrNull(rs.getObject("iron_mg")));
+            ingredient.setPotassiumMg(getFloatOrNull(rs.getObject("potassium_mg")));
+            return ingredient;
+        }, reelId);
+    }
+
     public List<LlmModelOption> findModelOptions() {
         return jdbcTemplate.query("""
                 SELECT model_id, model_name, model_tag
@@ -392,5 +550,15 @@ public class DashboardService {
             return number.floatValue();
         }
         return Float.parseFloat(value.toString());
+    }
+
+    private Double getDoubleOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        return Double.parseDouble(value.toString());
     }
 }

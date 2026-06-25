@@ -541,6 +541,57 @@ td span {
     accent-color: var(--accent);
 }
 
+.performance-model-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.performance-model-card {
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    background: #fafbfc;
+    padding: 14px;
+}
+
+.performance-model-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.performance-model-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.performance-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+.performance-table {
+    min-width: 0;
+    font-size: 13px;
+}
+
+.performance-table th,
+.performance-table td {
+    padding: 8px 10px;
+}
+
+.performance-table th {
+    font-size: 12px;
+}
+
+.performance-table td:first-child {
+    font-weight: 700;
+}
+
 .technical-output details {
     display: grid;
     gap: 10px;
@@ -670,6 +721,37 @@ pre {
     color: #f8fafc;
 }
 
+.modal-ingredient-section dd {
+    display: grid;
+    gap: 10px;
+}
+
+.modal-ingredient-table-wrap {
+    max-height: 240px;
+    overflow: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+}
+
+.modal-ingredient-table {
+    min-width: 900px;
+    font-size: 12px;
+}
+
+.modal-ingredient-table th,
+.modal-ingredient-table td {
+    padding: 8px 10px;
+}
+
+.modal-ingredient-table .numeric-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.modal-ingredient-empty {
+    padding: 12px;
+}
+
 @media (max-width: 920px) {
     .app-shell {
         grid-template-columns: 1fr;
@@ -697,6 +779,14 @@ pre {
 
     .run-form {
         grid-template-columns: 1fr;
+    }
+
+    .performance-model-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .performance-model-header {
+        display: grid;
     }
 
     .modal-overlay {

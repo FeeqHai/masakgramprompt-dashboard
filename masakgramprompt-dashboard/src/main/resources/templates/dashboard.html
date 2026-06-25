@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MasakGramPrompt Dashboard</title>
-    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=3)}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=8)}">
 </head>
 <body>
 <div class="app-shell">
@@ -18,8 +18,9 @@
 
         <nav class="nav">
             <a class="active" href="/dashboard">Dashboard</a>
-            <a href="#reels">Reels</a>
             <a href="#experiments">Batch Run</a>
+            <a href="#performance">Performance</a>
+            <a href="#reels">Reels</a>
         </nav>
     </aside>
 
@@ -133,6 +134,61 @@
                     <span>Last file: <strong id="batch-last-time" th:text="${batchStatus.lastProcessingTimeMs == null ? '-' : #numbers.formatDecimal(batchStatus.lastProcessingTimeMs / 1000.0, 1, 1) + ' s'}">-</strong></span>
                     <span>Average: <strong id="batch-average-time" th:text="${batchStatus.averageProcessingTimeMs == null ? '-' : #numbers.formatDecimal(batchStatus.averageProcessingTimeMs / 1000.0, 1, 1) + ' s/file'}">-</strong></span>
                 </div>
+            </div>
+        </section>
+
+        <section id="performance" class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Performance Analytics</h2>
+                    <p>Average processing time calculated from completed experiments.</p>
+                </div>
+                <span class="badge neutral">
+                    <span th:text="${#lists.size(modelProcessingTimes)}">0</span> models compared
+                </span>
+            </div>
+
+            <div th:if="${#lists.isEmpty(modelProcessingTimes)}" class="empty-state">
+                No completed experiment timing data yet. Run experiments first.
+            </div>
+
+            <div th:if="${!#lists.isEmpty(modelProcessingTimes)}" class="performance-model-grid">
+                <article class="performance-model-card" th:each="modelTime : ${modelProcessingTimes}">
+                    <div class="performance-model-header">
+                        <div>
+                            <h3 th:text="${modelTime.modelName}">Model name</h3>
+                            <span class="muted" th:text="${modelTime.modelTag}">model:tag</span>
+                        </div>
+                        <span class="badge ok" th:text="${'Fastest: ' + modelTime.fastestTechniqueName}">Fastest</span>
+                    </div>
+
+                    <div class="performance-table-wrap">
+                        <table class="performance-table">
+                            <thead>
+                            <tr>
+                                <th>Technique</th>
+                                <th>Avg</th>
+                                <th>Runs</th>
+                                <th>Min</th>
+                                <th>Max</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="technique : ${modelTime.techniqueSummaries}">
+                                <td th:text="${technique.techniqueName}">zero-shot</td>
+                                <td>
+                                    <span th:if="${technique.averageSeconds == null}" class="muted">No data</span>
+                                    <strong th:if="${technique.averageSeconds != null}"
+                                            th:text="${technique.averageSeconds + 's'}">0.0s</strong>
+                                </td>
+                                <td th:text="${technique.completedRuns}">0</td>
+                                <td th:text="${technique.minSeconds == null ? '-' : technique.minSeconds + 's'}">-</td>
+                                <td th:text="${technique.maxSeconds == null ? '-' : technique.maxSeconds + 's'}">-</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
             </div>
         </section>
 

@@ -58,7 +58,8 @@ public class LlmExperimentRunnerService {
         ModelInput model = loadModel(modelId);
         PromptInput prompt = loadPrompt(techniqueId);
 
-        int experimentId = createExperiment(transcript.transcriptId(), modelId, techniqueId);
+        int experimentId = findOrCreateExperiment(transcript.transcriptId(), modelId, techniqueId);
+        clearPreviousResults(experimentId);
         markExperimentRunning(experimentId);
 
         try {
@@ -136,6 +137,22 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    private int findOrCreateExperiment(int transcriptId, int modelId, int techniqueId) {
+        return jdbcTemplate.query("""
+                SELECT experiment_id
+                FROM experiment
+                WHERE transcript_id = ?
+                  AND model_id = ?
+                  AND technique_id = ?
+                  AND rag_enabled = FALSE
+                ORDER BY experiment_id
+                LIMIT 1
+                """, (rs, rowNum) -> rs.getInt("experiment_id"), transcriptId, modelId, techniqueId)
+                .stream()
+                .findFirst()
+                .orElseGet(() -> createExperiment(transcriptId, modelId, techniqueId));
+    }
+
     private int createExperiment(int transcriptId, int modelId, int techniqueId) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -154,6 +171,20 @@ public class LlmExperimentRunnerService {
             throw new IllegalStateException("Could not create experiment row");
         }
         return key.intValue();
+    }
+
+    private void clearPreviousResults(int experimentId) {
+        jdbcTemplate.update("""
+                DELETE ir
+                FROM ingredient_result ir
+                JOIN nutrition_result nr ON nr.result_id = ir.result_id
+                WHERE nr.experiment_id = ?
+                """, experimentId);
+
+        jdbcTemplate.update("""
+                DELETE FROM nutrition_result
+                WHERE experiment_id = ?
+                """, experimentId);
     }
 
     private void markExperimentRunning(int experimentId) {

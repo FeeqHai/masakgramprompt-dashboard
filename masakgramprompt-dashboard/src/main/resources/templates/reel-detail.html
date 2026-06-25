@@ -320,6 +320,34 @@
                                       th:text="${experiment.nutritionServingCarbohydrateG == null ? '-' : experiment.nutritionServingCarbohydrateG}">0</span>
                                 <span data-field="servingFat"
                                       th:text="${experiment.nutritionServingTotalFatG == null ? '-' : experiment.nutritionServingTotalFatG}">0</span>
+                                <div class="ingredient-modal-source"
+                                     th:each="ingredient : ${ingredientResults}"
+                                     th:if="${ingredient.resultId == experiment.nutritionResultId}">
+                                    <span data-ingredient-field="ingredientResultId"
+                                          th:text="${ingredient.ingredientResultId == null ? '-' : ingredient.ingredientResultId}">1</span>
+                                    <span data-ingredient-field="nameOriginal"
+                                          th:text="${ingredient.nameOriginal == null ? '-' : ingredient.nameOriginal}">Ingredient</span>
+                                    <span data-ingredient-field="nameEn"
+                                          th:text="${ingredient.nameEn == null ? '-' : ingredient.nameEn}">English</span>
+                                    <span data-ingredient-field="quantityValue"
+                                          th:text="${ingredient.quantityValue == null ? '-' : ingredient.quantityValue}">0</span>
+                                    <span data-ingredient-field="unitOriginal"
+                                          th:text="${ingredient.unitOriginal == null ? '-' : ingredient.unitOriginal}">unit</span>
+                                    <span data-ingredient-field="unitEn"
+                                          th:text="${ingredient.unitEn == null ? '-' : ingredient.unitEn}">unit</span>
+                                    <span data-ingredient-field="estimatedWeightG"
+                                          th:text="${ingredient.estimatedWeightG == null ? '-' : ingredient.estimatedWeightG}">0</span>
+                                    <span data-ingredient-field="calories"
+                                          th:text="${ingredient.calories == null ? '-' : ingredient.calories}">0</span>
+                                    <span data-ingredient-field="proteinG"
+                                          th:text="${ingredient.proteinG == null ? '-' : ingredient.proteinG}">0</span>
+                                    <span data-ingredient-field="totalCarbohydrateG"
+                                          th:text="${ingredient.totalCarbohydrateG == null ? '-' : ingredient.totalCarbohydrateG}">0</span>
+                                    <span data-ingredient-field="totalFatG"
+                                          th:text="${ingredient.totalFatG == null ? '-' : ingredient.totalFatG}">0</span>
+                                    <span data-ingredient-field="sodiumMg"
+                                          th:text="${ingredient.sodiumMg == null ? '-' : ingredient.sodiumMg}">0</span>
+                                </div>
                                 <pre data-field="rawJson" th:text="${experiment.nutritionRawJsonOutput}">{}</pre>
                             </div>
                         </td>
@@ -403,6 +431,33 @@
                 <dt>Per Serving Fat</dt>
                 <dd id="modalServingFat">-</dd>
             </div>
+            <div class="wide modal-ingredient-section">
+                <dt>Extracted Ingredients</dt>
+                <dd>
+                    <div class="modal-ingredient-table-wrap">
+                        <table class="modal-ingredient-table">
+                            <thead>
+                            <tr>
+                                <th>Ingredient</th>
+                                <th>English Name</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                <th>Estimated Weight (g)</th>
+                                <th>Calories</th>
+                                <th>Protein (g)</th>
+                                <th>Carbs (g)</th>
+                                <th>Fat (g)</th>
+                                <th>Sodium (mg)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="modalIngredientRows"></tbody>
+                        </table>
+                    </div>
+                    <div id="modalIngredientEmpty" class="empty-state modal-ingredient-empty" hidden>
+                        No ingredient rows are stored for this result.
+                    </div>
+                </dd>
+            </div>
             <div class="wide">
                 <dt>Raw JSON Response</dt>
                 <dd><pre id="modalRawJson" class="modal-raw-json">{}</pre></dd>
@@ -417,6 +472,8 @@
         const closeButton = document.getElementById('nutritionModalClose');
         const warning = document.getElementById('nutritionModalWarning');
         const jsonStatus = document.getElementById('modalJsonStatus');
+        const ingredientRows = document.getElementById('modalIngredientRows');
+        const ingredientEmpty = document.getElementById('modalIngredientEmpty');
         const experimentForm = document.getElementById('singleExperimentForm');
         const experimentButton = document.getElementById('singleExperimentButton');
         const experimentProgress = document.getElementById('singleExperimentProgress');
@@ -432,8 +489,47 @@
             return element ? element.textContent : '-';
         }
 
+        function ingredientText(source, fieldName) {
+            const element = source.querySelector('[data-ingredient-field="' + fieldName + '"]');
+            return element ? element.textContent : '-';
+        }
+
         function setText(id, value) {
             document.getElementById(id).textContent = value || '-';
+        }
+
+        function addIngredientCell(row, value, className) {
+            const cell = document.createElement('td');
+            cell.textContent = value || '-';
+            if (className) {
+                cell.className = className;
+            }
+            row.appendChild(cell);
+        }
+
+        function fillIngredientTable(source) {
+            const ingredientSources = source.querySelectorAll('.ingredient-modal-source');
+            ingredientRows.textContent = '';
+            ingredientEmpty.hidden = ingredientSources.length > 0;
+
+            ingredientSources.forEach(function (ingredientSource) {
+                const row = document.createElement('tr');
+                const unitOriginal = ingredientText(ingredientSource, 'unitOriginal');
+                const unitEn = ingredientText(ingredientSource, 'unitEn');
+
+                addIngredientCell(row, ingredientText(ingredientSource, 'nameOriginal'));
+                addIngredientCell(row, ingredientText(ingredientSource, 'nameEn'));
+                addIngredientCell(row, ingredientText(ingredientSource, 'quantityValue'), 'numeric-cell');
+                addIngredientCell(row, unitEn !== '-' ? unitEn : unitOriginal);
+                addIngredientCell(row, ingredientText(ingredientSource, 'estimatedWeightG'), 'numeric-cell');
+                addIngredientCell(row, ingredientText(ingredientSource, 'calories'), 'numeric-cell');
+                addIngredientCell(row, ingredientText(ingredientSource, 'proteinG'), 'numeric-cell');
+                addIngredientCell(row, ingredientText(ingredientSource, 'totalCarbohydrateG'), 'numeric-cell');
+                addIngredientCell(row, ingredientText(ingredientSource, 'totalFatG'), 'numeric-cell');
+                addIngredientCell(row, ingredientText(ingredientSource, 'sodiumMg'), 'numeric-cell');
+
+                ingredientRows.appendChild(row);
+            });
         }
 
         function openModal(resultId) {
@@ -458,6 +554,7 @@
             setText('modalServingCarbs', sourceText(source, 'servingCarbs'));
             setText('modalServingFat', sourceText(source, 'servingFat'));
             setText('modalRawJson', sourceText(source, 'rawJson'));
+            fillIngredientTable(source);
 
             jsonStatus.textContent = sourceText(source, 'jsonStatus');
             jsonStatus.className = isValidJson ? 'badge ok modal-status-badge' : 'badge missing modal-status-badge';

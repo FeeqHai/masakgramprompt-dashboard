@@ -53,6 +53,7 @@ public class DashboardController {
         model.addAttribute("models", dashboardService.findModelOptions());
         model.addAttribute("techniques", dashboardService.findPromptTechniqueOptions());
         model.addAttribute("batchStatus", batchExperimentService.getStatus());
+        model.addAttribute("modelProcessingTimes", dashboardService.findModelProcessingSummaries());
         return "dashboard";
     }
 
@@ -126,6 +127,7 @@ public class DashboardController {
         model.addAttribute("transcript", dashboardService.findTranscriptByReelId(reelId).orElse(null));
         model.addAttribute("experiments", dashboardService.findExperimentsByReelId(reelId));
         model.addAttribute("nutritionResults", dashboardService.findNutritionResultsByReelId(reelId));
+        model.addAttribute("ingredientResults", dashboardService.findIngredientResultsByReelId(reelId));
         model.addAttribute("models", dashboardService.findModelOptions());
         model.addAttribute("techniques", dashboardService.findPromptTechniqueOptions());
 
@@ -143,7 +145,7 @@ public class DashboardController {
             int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
             redirectAttributes.addFlashAttribute(
                     "successMessage",
-                    "Experiment " + experimentId + " completed and saved."
+                    "Experiment " + experimentId + " completed. Previous result for the same model and prompt was replaced."
             );
         } catch (Exception ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
