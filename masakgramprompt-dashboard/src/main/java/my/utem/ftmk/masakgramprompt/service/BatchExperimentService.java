@@ -103,8 +103,8 @@ public class BatchExperimentService {
                 status.setCurrentReelId(null);
                 status.setCurrentReelInstagramId(null);
                 status.setFinishedAt(LocalDateTime.now());
-            }
-        }
+             }
+        }  
     }
 
     private List<ReelInput> loadReelsWithTranscript() {
