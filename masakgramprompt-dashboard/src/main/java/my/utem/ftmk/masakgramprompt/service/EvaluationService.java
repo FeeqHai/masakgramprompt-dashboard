@@ -3,9 +3,11 @@ package my.utem.ftmk.masakgramprompt.service;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class EvaluationService {
@@ -67,7 +69,12 @@ public class EvaluationService {
             String key = evaluation.modelId() + ":" + evaluation.techniqueId();
             AggregateAccumulator accumulator = accumulators.computeIfAbsent(
                     key,
-                    value -> new AggregateAccumulator(evaluation.modelName(), evaluation.techniqueName())
+                    value -> new AggregateAccumulator(
+                            evaluation.modelId(),
+                            evaluation.modelName(),
+                            evaluation.techniqueId(),
+                            evaluation.techniqueName()
+                    )
             );
             accumulator.add(evaluation);
         }
@@ -76,9 +83,108 @@ public class EvaluationService {
                 .toList();
     }
 
+    /**
+     * Builds the page model for the accuracy dashboard from existing aggregate metrics.
+     */
+    public EvaluationDashboardPage loadEvaluationDashboard() {
+        return loadEvaluationDashboard(null, "ingredient");
+    }
+
+    public EvaluationDashboardPage loadEvaluationDashboard(Integer modelId, String type) {
+        List<EvaluationAggregate> aggregates = aggregateByModelTechnique();
+        String selectedType = normalizeEvaluationType(type);
+        List<EvaluationAggregate> filteredRows = aggregates.stream()
+                .filter(row -> modelId == null || row.modelId() == modelId)
+                .sorted(rowComparator(selectedType))
+                .toList();
+
+        return new EvaluationDashboardPage(
+                buildSummary(aggregates),
+                modelOptions(),
+                modelId,
+                selectedType,
+                filteredRows
+        );
+    }
+
+    private List<ModelOption> modelOptions() {
+        return reviewDashboardService.findModelCards().stream()
+                .map(model -> new ModelOption(model.modelId(), model.modelName()))
+                .toList();
+    }
+
+    private String normalizeEvaluationType(String type) {
+        if (type == null || type.isBlank()) {
+            return "ingredient";
+        }
+        return switch (type) {
+            case "nutrition", "json", "ranking" -> type;
+            default -> "ingredient";
+        };
+    }
+
+    private Comparator<EvaluationAggregate> rowComparator(String type) {
+        if ("ranking".equals(type)) {
+            return Comparator
+                    .comparing(EvaluationAggregate::averageF1).reversed()
+                    .thenComparing(EvaluationAggregate::hallucinationRate)
+                    .thenComparing(EvaluationAggregate::averageCalorieAbsoluteError);
+        }
+        return Comparator
+                .comparing(EvaluationAggregate::modelId)
+                .thenComparing(EvaluationAggregate::techniqueId);
+    }
+
+    public List<EvaluationAggregate> rankedAggregates() {
+        return aggregateByModelTechnique().stream()
+                .sorted(Comparator
+                        .comparing(EvaluationAggregate::averageF1).reversed()
+                        .thenComparing(EvaluationAggregate::hallucinationRate)
+                        .thenComparing(EvaluationAggregate::averageCalorieAbsoluteError))
+                .toList();
+    }
+
+    private EvaluationSummary buildSummary(List<EvaluationAggregate> aggregates) {
+        int totalCompleted = aggregates.stream()
+                .mapToInt(EvaluationAggregate::completedExperiments)
+                .sum();
+        Optional<EvaluationAggregate> bestF1 = aggregates.stream()
+                .max(Comparator.comparing(EvaluationAggregate::averageF1));
+        Optional<EvaluationAggregate> bestRecall = aggregates.stream()
+                .max(Comparator.comparing(EvaluationAggregate::averageRecall));
+        Optional<EvaluationAggregate> lowestCalorieError = aggregates.stream()
+                .min(Comparator.comparing(EvaluationAggregate::averageCalorieAbsoluteError));
+        Optional<EvaluationAggregate> bestJsonValidity = aggregates.stream()
+                .max(Comparator.comparing(EvaluationAggregate::jsonValidityRate));
+        Optional<EvaluationAggregate> highestHallucination = aggregates.stream()
+                .max(Comparator.comparing(EvaluationAggregate::hallucinationRate));
+
+        return new EvaluationSummary(
+                totalCompleted,
+                label(bestF1),
+                bestF1.map(EvaluationAggregate::averageF1).orElse(0.0),
+                label(bestRecall),
+                bestRecall.map(EvaluationAggregate::averageRecall).orElse(0.0),
+                label(lowestCalorieError),
+                lowestCalorieError.map(EvaluationAggregate::averageCalorieAbsoluteError).orElse(0.0),
+                label(bestJsonValidity),
+                bestJsonValidity.map(EvaluationAggregate::jsonValidityRate).orElse(0.0),
+                label(highestHallucination),
+                highestHallucination.map(EvaluationAggregate::hallucinationRate).orElse(0.0)
+        );
+    }
+
+    private String label(Optional<EvaluationAggregate> aggregate) {
+        return aggregate
+                .map(item -> item.modelName() + " - " + item.techniqueName())
+                .orElse("Not available");
+    }
+
     private static final class AggregateAccumulator {
 
+        private final int modelId;
         private final String modelName;
+        private final int techniqueId;
         private final String techniqueName;
         private int completedExperiments;
         private double precisionTotal;
@@ -96,8 +202,15 @@ public class EvaluationService {
         private int hallucinationCount;
         private int aiIngredientCount;
 
-        private AggregateAccumulator(String modelName, String techniqueName) {
+        private AggregateAccumulator(
+                int modelId,
+                String modelName,
+                int techniqueId,
+                String techniqueName
+        ) {
+            this.modelId = modelId;
             this.modelName = modelName;
+            this.techniqueId = techniqueId;
             this.techniqueName = techniqueName;
         }
 
@@ -147,7 +260,9 @@ public class EvaluationService {
 
         private EvaluationAggregate toAggregate() {
             return new EvaluationAggregate(
+                    modelId,
                     modelName,
+                    techniqueId,
                     techniqueName,
                     completedExperiments,
                     average(precisionTotal, completedExperiments),
@@ -195,7 +310,9 @@ public class EvaluationService {
     }
 
     public record EvaluationAggregate(
+            int modelId,
             String modelName,
+            int techniqueId,
             String techniqueName,
             int completedExperiments,
             double averagePrecision,
@@ -209,5 +326,70 @@ public class EvaluationService {
             int hallucinationCount,
             double hallucinationRate
     ) {
+        public String conditionLabel() {
+            return modelName + " - " + techniqueName;
+        }
+
+        public String jsonValidityCssClass() {
+            if (jsonValidityRate >= 0.9) {
+                return "badge ok";
+            }
+            if (jsonValidityRate >= 0.7) {
+                return "badge pending";
+            }
+            return "badge missing";
+        }
+    }
+
+    public record EvaluationDashboardPage(
+            EvaluationSummary summary,
+            List<ModelOption> modelOptions,
+            Integer selectedModelId,
+            String selectedType,
+            List<EvaluationAggregate> rows
+    ) {
+        public boolean hasRows() {
+            return !rows.isEmpty();
+        }
+    }
+
+    public record ModelOption(int modelId, String modelName) {
+    }
+
+    public record EvaluationSummary(
+            int totalCompletedExperiments,
+            String bestF1Label,
+            double bestF1,
+            String bestRecallLabel,
+            double bestRecall,
+            String lowestCalorieErrorLabel,
+            double lowestCalorieError,
+            String bestJsonValidityLabel,
+            double bestJsonValidity,
+            String highestHallucinationLabel,
+            double highestHallucinationRate
+    ) {
+    }
+
+    public record ModelEvaluationGroup(
+            int modelId,
+            String modelName,
+            List<EvaluationAggregate> techniques
+    ) {
+        public EvaluationAggregate bestF1Technique() {
+            return techniques.stream()
+                    .max(Comparator.comparing(EvaluationAggregate::averageF1))
+                    .orElse(null);
+        }
+
+        public String bestTechniqueName() {
+            EvaluationAggregate best = bestF1Technique();
+            return best == null ? "Not available" : best.techniqueName();
+        }
+
+        public double bestF1() {
+            EvaluationAggregate best = bestF1Technique();
+            return best == null ? 0.0 : best.averageF1();
+        }
     }
 }

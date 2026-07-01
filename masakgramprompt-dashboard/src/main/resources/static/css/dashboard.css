@@ -469,6 +469,12 @@ td span {
     border: 1px solid #fef0c7;
 }
 
+.notice.neutral {
+    background: #e8eef8;
+    color: var(--blue);
+    border: 1px solid #d5e0f6;
+}
+
 .run-form {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px) auto;
@@ -1006,6 +1012,126 @@ pre {
     min-height: 210px;
 }
 
+.evaluation-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.evaluation-summary-card {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 16px;
+}
+
+.evaluation-summary-card span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.evaluation-summary-card strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 26px;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+
+.evaluation-summary-card small {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    line-height: 1.35;
+}
+
+.evaluation-filter-form {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.evaluation-filter-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.evaluation-filter-form select {
+    width: 100%;
+}
+
+.evaluation-filter-form button {
+    min-height: 42px;
+}
+
+.evaluation-table-wrap {
+    overflow-x: auto;
+    width: 100%;
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+.evaluation-main-table {
+    width: 100%;
+    min-width: 820px;
+    font-size: 13px;
+}
+
+.evaluation-ranking-table {
+    min-width: 980px;
+}
+
+.evaluation-main-table th,
+.evaluation-main-table td,
+.evaluation-ranking-table th,
+.evaluation-ranking-table td {
+    padding: 8px 10px;
+}
+
+.evaluation-main-table td:first-child,
+.evaluation-ranking-table td:nth-child(2) {
+    font-weight: 700;
+}
+
+.evaluation-help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.evaluation-help-grid p {
+    margin: 0;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: #fafbfc;
+    padding: 12px;
+    line-height: 1.45;
+}
+
+.score-good {
+    color: var(--green);
+    font-weight: 700;
+}
+
+.score-warning {
+    color: var(--yellow);
+    font-weight: 700;
+}
+
+.score-bad {
+    color: var(--red);
+    font-weight: 700;
+}
+
 @media (max-width: 920px) {
     .app-shell {
         grid-template-columns: 1fr;
@@ -1017,13 +1143,15 @@ pre {
 
     .metrics-strip,
     .summary-grid,
+    .evaluation-summary-grid,
     .work-grid,
     .detail-grid,
     .model-grid,
     .technique-grid,
     .export-grid,
     .fact-grid,
-    .metric-grid {
+    .metric-grid,
+    .evaluation-filter-form {
         grid-template-columns: 1fr;
     }
 
@@ -1066,5 +1194,43 @@ pre {
 
     .modal-header {
         display: grid;
+    }
+}
+
+@media (max-width: 640px) {
+    .content {
+        padding: 16px;
+    }
+
+    .sidebar {
+        padding: 16px;
+    }
+
+    .nav {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    }
+
+    .evaluation-summary-grid,
+    .evaluation-filter-form,
+    .evaluation-help-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .evaluation-filter-form button,
+    .top-actions .api-link,
+    .small-button {
+        width: 100%;
+    }
+
+    .panel {
+        padding: 14px;
+    }
+
+    .panel-header {
+        display: grid;
+    }
+
+    .evaluation-main-table {
+        min-width: 720px;
     }
 }

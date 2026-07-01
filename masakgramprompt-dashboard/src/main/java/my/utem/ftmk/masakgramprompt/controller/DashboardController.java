@@ -199,9 +199,13 @@ public class DashboardController {
     }
 
     @GetMapping("/evaluation")
-    public String evaluation(Model model) {
+    public String evaluation(
+            @RequestParam(name = "modelId", required = false) String modelId,
+            @RequestParam(name = "type", required = false, defaultValue = "ingredient") String type,
+            Model model
+    ) {
         model.addAttribute("activePage", "evaluation");
-        model.addAttribute("aggregates", evaluationService.aggregateByModelTechnique());
+        model.addAttribute("page", evaluationService.loadEvaluationDashboard(parseModelId(modelId), type));
         return "evaluation";
     }
 
@@ -332,5 +336,16 @@ public class DashboardController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .body(file.content());
+    }
+
+    private Integer parseModelId(String modelId) {
+        if (modelId == null || modelId.isBlank() || "all".equalsIgnoreCase(modelId)) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(modelId);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

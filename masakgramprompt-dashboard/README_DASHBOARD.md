@@ -143,6 +143,28 @@ The result page shows:
 - calculates nutrition absolute errors
 - tracks JSON validity and possible hallucination rate
 
+The Evaluation Dashboard has four sections:
+
+- `Ingredient Detection`: checks whether the AI found the correct ground truth ingredients.
+- `Nutrition Accuracy`: compares nutrition totals using Mean Absolute Error (MAE).
+- `JSON Quality`: checks whether the LLM output followed the required JSON format.
+- `Condition Ranking`: ranks each model and prompt technique by F1 first, then hallucination rate, then calorie error.
+
+Formula reminders:
+
+- Precision = matched ingredients / AI extracted ingredients.
+- Recall = matched ingredients / ground truth ingredients.
+- F1 = balanced score between precision and recall.
+- Nutrition MAE = average absolute difference between AI nutrition totals and ground truth totals.
+- JSON validity rate = completed outputs with valid JSON / completed outputs.
+- Hallucination rate = extra AI ingredients / AI extracted ingredients.
+
+Each Evaluation row includes a `View Reels` link so you can move from:
+
+```text
+Evaluation -> Model + Technique Reels -> Individual Result / Fact Sheet
+```
+
 Keep these pages separate when explaining the system.
 
 ## CSV Exports

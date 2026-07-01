@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluation - MasakGramPrompt</title>
-    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+    <title>Evaluation Dashboard - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=11)}">
 </head>
 <body>
 <div class="app-shell">
@@ -29,62 +29,257 @@
     <main class="content">
         <header class="topbar">
             <div>
-                <h1>Evaluation</h1>
-                <p>Correctness is measured against human ground truth annotations.</p>
+                <h1>Evaluation Dashboard</h1>
+                <p>Accuracy comparison against human ground truth.</p>
             </div>
         </header>
+
+        <div class="notice neutral">
+            Performance Analytics measures speed. This Evaluation Dashboard measures correctness against human ground truth.
+        </div>
+
+        <section class="evaluation-summary-grid" aria-label="Evaluation summary">
+            <article class="evaluation-summary-card">
+                <span>Total Completed Evaluations</span>
+                <strong th:text="${page.summary.totalCompletedExperiments}">0</strong>
+                <small>Completed experiment rows included</small>
+            </article>
+            <article class="evaluation-summary-card">
+                <span>Best F1 Condition</span>
+                <strong th:text="${page.summary.bestF1}">0</strong>
+                <small th:text="${page.summary.bestF1Label}">Not available</small>
+            </article>
+            <article class="evaluation-summary-card">
+                <span>Best Recall Condition</span>
+                <strong th:text="${page.summary.bestRecall}">0</strong>
+                <small th:text="${page.summary.bestRecallLabel}">Not available</small>
+            </article>
+            <article class="evaluation-summary-card">
+                <span>Lowest Calorie Error</span>
+                <strong th:text="${page.summary.lowestCalorieError + ' kcal'}">0 kcal</strong>
+                <small th:text="${page.summary.lowestCalorieErrorLabel}">Not available</small>
+            </article>
+            <article class="evaluation-summary-card">
+                <span>Best JSON Validity</span>
+                <strong th:text="${#numbers.formatDecimal(page.summary.bestJsonValidity * 100, 1, 1) + '%'}">0%</strong>
+                <small th:text="${page.summary.bestJsonValidityLabel}">Not available</small>
+            </article>
+        </section>
+        
+           <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>How Scores Are Calculated</h2>
+                    <p>Evaluation scores are calculated from completed experiments that can be compared with ground truth.</p>
+                </div>
+            </div>
+            <div class="evaluation-help-grid">
+                <p><strong>Ingredient Detection:</strong> Precision = matched / AI ingredients, Recall = matched / ground truth ingredients, and F1 balances both.</p>
+                <p><strong>Nutrition Accuracy:</strong> MAE is Mean Absolute Error. Lower values are better.</p>
+                <p><strong>JSON Quality:</strong> Validity and hallucination rates focus on output structure and ingredient reliability.</p>
+            </div>
+        </section>
 
         <section class="panel">
             <div class="panel-header">
                 <div>
-                    <h2>Model + Prompt Accuracy</h2>
-                    <p>Performance is speed; evaluation is correctness.</p>
+                    <h2>Filter</h2>
+                    <p>Select one model and one evaluation type to keep the table focused.</p>
+                </div>
+            </div>
+           
+
+            <form class="evaluation-filter-form" method="get" action="/evaluation">
+                <label>
+                    <span>Select Model</span>
+                    <select name="modelId">
+                        <option value="all" th:selected="${page.selectedModelId == null}">All Models</option>
+                        <option th:each="modelOption : ${page.modelOptions}"
+                                th:value="${modelOption.modelId}"
+                                th:selected="${page.selectedModelId != null && page.selectedModelId == modelOption.modelId}"
+                                th:text="${modelOption.modelName}">
+                            Qwen 2.5
+                        </option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>Select Evaluation Type</span>
+                    <select name="type">
+                        <option value="ingredient" th:selected="${page.selectedType == 'ingredient'}">Ingredient Detection</option>
+                        <option value="nutrition" th:selected="${page.selectedType == 'nutrition'}">Nutrition Accuracy</option>
+                        <option value="json" th:selected="${page.selectedType == 'json'}">JSON Quality</option>
+                        <option value="ranking" th:selected="${page.selectedType == 'ranking'}">Condition Ranking</option>
+                    </select>
+                </label>
+
+                <button type="submit">Apply Filter</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div th:switch="${page.selectedType}">
+                    <div th:case="'nutrition'">
+                        <h2>Nutrition Accuracy</h2>
+                        <p>MAE means Mean Absolute Error. Lower value is better.</p>
+                    </div>
+                    <div th:case="'json'">
+                        <h2>JSON Quality</h2>
+                        <p>JSON validity checks format compliance. Hallucination rate is shown as a percentage.</p>
+                    </div>
+                    <div th:case="'ranking'">
+                        <h2>Condition Ranking</h2>
+                        <p>This is a simple student-level ranking. It uses F1 first, hallucination rate second, and calorie error third.</p>
+                    </div>
+                    <div th:case="*">
+                        <h2>Ingredient Detection</h2>
+                        <p>Precision = matched / AI ingredients. Recall = matched / ground truth ingredients. F1 balances both.</p>
+                    </div>
                 </div>
             </div>
 
-            <div th:if="${#lists.isEmpty(aggregates)}" class="empty-state">
-                No completed experiment rows are available for evaluation.
+            <div th:if="${!page.hasRows()}" class="empty-state">
+                No completed experiment rows match this filter.
             </div>
 
-            <div th:if="${!#lists.isEmpty(aggregates)}" class="table-wrap">
-                <table class="evaluation-table">
+            <div th:if="${page.hasRows()}" class="evaluation-table-wrap">
+                <table th:if="${page.selectedType == 'ingredient'}" class="evaluation-main-table">
                     <thead>
                     <tr>
                         <th>Model</th>
                         <th>Technique</th>
-                        <th>Completed</th>
-                        <th>Avg Precision</th>
-                        <th>Avg Recall</th>
-                        <th>Avg F1</th>
-                        <th>Calorie Error</th>
-                        <th>Protein Error</th>
-                        <th>Fat Error</th>
-                        <th>Carb Error</th>
-                        <th>JSON Validity</th>
-                        <th>Hallucination Count</th>
-                        <th>Hallucination Rate</th>
+                        <th>Runs</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>F1</th>
+                        <th>View Reels</th>
                     </tr>
                     </thead>
                     <tbody>
-                    <tr th:each="aggregate : ${aggregates}">
-                        <td th:text="${aggregate.modelName}">Model</td>
-                        <td th:text="${aggregate.techniqueName}">Technique</td>
-                        <td th:text="${aggregate.completedExperiments}">0</td>
-                        <td th:text="${aggregate.averagePrecision}">0</td>
-                        <td th:text="${aggregate.averageRecall}">0</td>
-                        <td th:text="${aggregate.averageF1}">0</td>
-                        <td th:text="${aggregate.averageCalorieAbsoluteError}">0</td>
-                        <td th:text="${aggregate.averageProteinAbsoluteError}">0</td>
-                        <td th:text="${aggregate.averageFatAbsoluteError}">0</td>
-                        <td th:text="${aggregate.averageCarbAbsoluteError}">0</td>
-                        <td th:text="${aggregate.jsonValidityRate}">0</td>
-                        <td th:text="${aggregate.hallucinationCount}">0</td>
-                        <td th:text="${aggregate.hallucinationRate}">0</td>
+                    <tr th:each="item : ${page.rows}">
+                        <td th:text="${item.modelName}">Model</td>
+                        <td th:text="${item.techniqueName}">Technique</td>
+                        <td th:text="${item.completedExperiments}">0</td>
+                        <td th:text="${item.averagePrecision}">0</td>
+                        <td th:text="${item.averageRecall}">0</td>
+                        <td><strong th:text="${item.averageF1}">0</strong></td>
+                        <td>
+                            <a class="small-button"
+                               th:href="@{/models/{modelId}/techniques/{techniqueId}/reels(modelId=${item.modelId},techniqueId=${item.techniqueId})}">
+                                View Reels
+                            </a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <table th:if="${page.selectedType == 'nutrition'}" class="evaluation-main-table">
+                    <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Technique</th>
+                        <th>Runs</th>
+                        <th>Calorie MAE</th>
+                        <th>Protein MAE</th>
+                        <th>Fat MAE</th>
+                        <th>Carb MAE</th>
+                        <th>View Reels</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${page.rows}">
+                        <td th:text="${item.modelName}">Model</td>
+                        <td th:text="${item.techniqueName}">Technique</td>
+                        <td th:text="${item.completedExperiments}">0</td>
+                        <td th:text="${item.averageCalorieAbsoluteError + ' kcal'}">0 kcal</td>
+                        <td th:text="${item.averageProteinAbsoluteError + ' g'}">0 g</td>
+                        <td th:text="${item.averageFatAbsoluteError + ' g'}">0 g</td>
+                        <td th:text="${item.averageCarbAbsoluteError + ' g'}">0 g</td>
+                        <td>
+                            <a class="small-button"
+                               th:href="@{/models/{modelId}/techniques/{techniqueId}/reels(modelId=${item.modelId},techniqueId=${item.techniqueId})}">
+                                View Reels
+                            </a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <table th:if="${page.selectedType == 'json'}" class="evaluation-main-table">
+                    <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Technique</th>
+                        <th>Runs</th>
+                        <th>JSON Validity Rate</th>
+                        <th>Hallucination Count</th>
+                        <th>Hallucination Rate</th>
+                        <th>View Reels</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${page.rows}">
+                        <td th:text="${item.modelName}">Model</td>
+                        <td th:text="${item.techniqueName}">Technique</td>
+                        <td th:text="${item.completedExperiments}">0</td>
+                        <td>
+                            <span th:class="${item.jsonValidityCssClass()}"
+                                  th:text="${#numbers.formatDecimal(item.jsonValidityRate * 100, 1, 1) + '%'}">100%</span>
+                        </td>
+                        <td th:text="${item.hallucinationCount}">0</td>
+                        <td th:text="${#numbers.formatDecimal(item.hallucinationRate * 100, 1, 1) + '%'}">0%</td>
+                        <td>
+                            <a class="small-button"
+                               th:href="@{/models/{modelId}/techniques/{techniqueId}/reels(modelId=${item.modelId},techniqueId=${item.techniqueId})}">
+                                View Reels
+                            </a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <table th:if="${page.selectedType == 'ranking'}" class="evaluation-main-table evaluation-ranking-table">
+                    <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Model</th>
+                        <th>Technique</th>
+                        <th>Runs</th>
+                        <th>F1</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>Calorie MAE</th>
+                        <th>JSON Validity</th>
+                        <th>Hallucination Rate</th>
+                        <th>View Reels</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item, iter : ${page.rows}">
+                        <td th:text="${iter.index + 1}">1</td>
+                        <td th:text="${item.modelName}">Model</td>
+                        <td th:text="${item.techniqueName}">Technique</td>
+                        <td th:text="${item.completedExperiments}">0</td>
+                        <td><strong th:text="${item.averageF1}">0</strong></td>
+                        <td th:text="${item.averagePrecision}">0</td>
+                        <td th:text="${item.averageRecall}">0</td>
+                        <td th:text="${item.averageCalorieAbsoluteError + ' kcal'}">0 kcal</td>
+                        <td th:text="${#numbers.formatDecimal(item.jsonValidityRate * 100, 1, 1) + '%'}">0%</td>
+                        <td th:text="${#numbers.formatDecimal(item.hallucinationRate * 100, 1, 1) + '%'}">0%</td>
+                        <td>
+                            <a class="small-button"
+                               th:href="@{/models/{modelId}/techniques/{techniqueId}/reels(modelId=${item.modelId},techniqueId=${item.techniqueId})}">
+                                View Reels
+                            </a>
+                        </td>
                     </tr>
                     </tbody>
                 </table>
             </div>
         </section>
+
+
     </main>
 </div>
 </body>
