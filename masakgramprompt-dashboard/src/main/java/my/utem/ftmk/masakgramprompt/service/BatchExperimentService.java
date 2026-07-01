@@ -61,6 +61,7 @@ public class BatchExperimentService {
         status.setCurrentReelInstagramId(null);
         status.setModelName(loadModelName(modelId));
         status.setTechniqueName(loadTechniqueNames(techniqueIds));
+        status.setCurrentStage("Preparing batch request");
         status.setStartedAt(LocalDateTime.now());
         status.setFinishedAt(null);
 
@@ -80,6 +81,7 @@ public class BatchExperimentService {
         copy.setCurrentReelInstagramId(status.getCurrentReelInstagramId());
         copy.setModelName(status.getModelName());
         copy.setTechniqueName(status.getTechniqueName());
+        copy.setCurrentStage(status.getCurrentStage());
         copy.setStartedAt(status.getStartedAt());
         copy.setFinishedAt(status.getFinishedAt());
         return copy;
@@ -88,20 +90,30 @@ public class BatchExperimentService {
     private void runBatch(List<ReelInput> reels, int modelId, List<Integer> techniqueIds) {
         try {
             for (Integer techniqueId : techniqueIds) {
+                String techniqueName = loadTechniqueName(techniqueId);
+
                 for (ReelInput reel : reels) {
                     synchronized (this) {
                         status.setCurrentReelId(reel.reelId());
                         status.setCurrentReelInstagramId(reel.instagramId());
+                        status.setCurrentStage("Preparing request for " + techniqueName);
                     }
 
                     long runStartedAtNanos = System.nanoTime();
                     try {
-                        experimentRunnerService.run(reel.reelId(), modelId, techniqueId);
                         synchronized (this) {
+                            status.setCurrentStage("Sending prompt to Ollama");
+                        }
+
+                        experimentRunnerService.run(reel.reelId(), modelId, techniqueId);
+
+                        synchronized (this) {
+                            status.setCurrentStage("Saving result to database");
                             status.setCompletedRuns(status.getCompletedRuns() + 1);
                         }
                     } catch (Exception ex) {
                         synchronized (this) {
+                            status.setCurrentStage("Experiment failed, moving to next reel");
                             status.setFailedRuns(status.getFailedRuns() + 1);
                         }
                         System.err.printf(
@@ -126,6 +138,7 @@ public class BatchExperimentService {
                 status.setRunning(false);
                 status.setCurrentReelId(null);
                 status.setCurrentReelInstagramId(null);
+                status.setCurrentStage("Completed");
                 status.setFinishedAt(LocalDateTime.now());
             }
         }
