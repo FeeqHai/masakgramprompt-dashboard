@@ -15,11 +15,7 @@ public class BatchRunStatus {
     private String currentReelInstagramId;
     private String modelName;
     private String techniqueName;
-<<<<<<< HEAD
     private String stage;
-=======
-    private String currentStage;
->>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
 
@@ -108,21 +104,12 @@ public class BatchRunStatus {
         this.techniqueName = techniqueName;
     }
 
-<<<<<<< HEAD
     public String getStage() {
         return stage;
     }
 
     public void setStage(String stage) {
         this.stage = stage;
-=======
-    public String getCurrentStage() {
-        return currentStage;
-    }
-
-    public void setCurrentStage(String currentStage) {
-        this.currentStage = currentStage;
->>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
     }
 
     public LocalDateTime getStartedAt() {
