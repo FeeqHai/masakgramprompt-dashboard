@@ -61,7 +61,11 @@ public class BatchExperimentService {
         status.setCurrentReelInstagramId(null);
         status.setModelName(loadModelName(modelId));
         status.setTechniqueName(loadTechniqueNames(techniqueIds));
+<<<<<<< HEAD
         status.setStage("Preparing request");
+=======
+        status.setCurrentStage("Preparing batch request");
+>>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
         status.setStartedAt(LocalDateTime.now());
         status.setFinishedAt(null);
 
@@ -81,7 +85,11 @@ public class BatchExperimentService {
         copy.setCurrentReelInstagramId(status.getCurrentReelInstagramId());
         copy.setModelName(status.getModelName());
         copy.setTechniqueName(status.getTechniqueName());
+<<<<<<< HEAD
         copy.setStage(status.getStage());
+=======
+        copy.setCurrentStage(status.getCurrentStage());
+>>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
         copy.setStartedAt(status.getStartedAt());
         copy.setFinishedAt(status.getFinishedAt());
         return copy;
@@ -90,23 +98,43 @@ public class BatchExperimentService {
     private void runBatch(List<ReelInput> reels, int modelId, List<Integer> techniqueIds) {
         try {
             for (Integer techniqueId : techniqueIds) {
+<<<<<<< HEAD
                 String currentTechniqueName = loadTechniqueName(techniqueId);
+=======
+                String techniqueName = loadTechniqueName(techniqueId);
+
+>>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
                 for (ReelInput reel : reels) {
                     synchronized (this) {
                         status.setCurrentReelId(reel.reelId());
                         status.setCurrentReelInstagramId(reel.instagramId());
+<<<<<<< HEAD
                         status.setTechniqueName(currentTechniqueName);
                         status.setStage("Preparing request");
+=======
+                        status.setCurrentStage("Preparing request for " + techniqueName);
+>>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
                     }
 
                     long runStartedAtNanos = System.nanoTime();
                     try {
+<<<<<<< HEAD
                         experimentRunnerService.run(reel.reelId(), modelId, techniqueId, this::updateStage);
+=======
+>>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
                         synchronized (this) {
+                            status.setCurrentStage("Sending prompt to Ollama");
+                        }
+
+                        experimentRunnerService.run(reel.reelId(), modelId, techniqueId);
+
+                        synchronized (this) {
+                            status.setCurrentStage("Saving result to database");
                             status.setCompletedRuns(status.getCompletedRuns() + 1);
                         }
                     } catch (Exception ex) {
                         synchronized (this) {
+                            status.setCurrentStage("Experiment failed, moving to next reel");
                             status.setFailedRuns(status.getFailedRuns() + 1);
                             status.setStage("Run failed");
                         }
@@ -132,7 +160,11 @@ public class BatchExperimentService {
                 status.setRunning(false);
                 status.setCurrentReelId(null);
                 status.setCurrentReelInstagramId(null);
+<<<<<<< HEAD
                 status.setStage("Completed");
+=======
+                status.setCurrentStage("Completed");
+>>>>>>> branch 'master' of https://github.com/FeeqHai/masakgramprompt-dashboard.git
                 status.setFinishedAt(LocalDateTime.now());
             }
         }
