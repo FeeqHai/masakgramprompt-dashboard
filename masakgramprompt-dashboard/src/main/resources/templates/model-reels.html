@@ -39,6 +39,8 @@
             </div>
         </header>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <section class="panel">
             <div class="panel-header">
                 <div>
@@ -86,15 +88,10 @@
                         <td>
                             <span th:class="${reel.groundTruthAvailable ? 'badge ok' : 'badge pending'}"
                                   th:text="${reel.groundTruthAvailable ? 'Ready' : 'Missing'}">Ready</span>
-                            <span class="muted"
-                                  th:text="${reel.groundTruthIngredientCount + ' ingredients'}">0 ingredients</span>
                         </td>
                         <td>
                             <span th:class="${reel.resultId != null ? 'badge ok' : 'badge missing'}"
                                   th:text="${reel.resultStatusLabel()}">No result</span>
-                            <span class="muted"
-                                  th:if="${reel.jsonValid != null}"
-                                  th:text="${reel.jsonValid ? 'Valid JSON' : 'Invalid JSON'}">JSON</span>
                         </td>
                         <td>
                             <a th:if="${reel.resultId != null}"

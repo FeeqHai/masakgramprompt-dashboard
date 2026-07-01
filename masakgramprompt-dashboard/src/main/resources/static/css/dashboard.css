@@ -250,6 +250,10 @@ a.small-button:hover {
     margin-bottom: 16px;
 }
 
+.model-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .metric,
 .panel {
     background: var(--surface);
@@ -521,6 +525,21 @@ td span {
 
 .single-experiment-progress p {
     margin: 0;
+}
+
+.single-run-global-status {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.single-run-global-status[hidden] {
+    display: none;
+}
+
+.single-run-global-status strong {
+    color: var(--text);
 }
 
 .batch-status {

@@ -897,7 +897,7 @@ public class ReviewDashboardService {
         }
 
         public boolean canRunExperiment() {
-            return transcriptId != null && !running();
+            return transcriptId != null && resultId == null && !running();
         }
 
         public String runOptionLabel() {

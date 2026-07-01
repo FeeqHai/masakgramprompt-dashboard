@@ -38,6 +38,8 @@
             </div>
         </header>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <section class="export-grid">
             <article class="export-card" th:each="item : ${exports}">
                 <div>

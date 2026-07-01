@@ -35,6 +35,8 @@
             </div>
         </header>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
         <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
 
@@ -84,8 +86,8 @@
                     <h2>Run Selected Reel</h2>
                     <p th:text="${selectedModelName + ' - ' + selectedTechniqueName}">Selected condition</p>
                 </div>
-                <span th:class="${batchStatus.running} ? 'badge pending' : 'badge neutral'"
-                      th:text="${batchStatus.running} ? 'Batch running' : 'Ready'">Ready</span>
+                <span th:class="${singleRunLocked} ? 'badge pending' : 'badge neutral'"
+                      th:text="${batchStatus.running ? 'Batch running' : (selectedConditionRunning ? 'Single run active' : 'Ready')}">Ready</span>
             </div>
 
             <form class="single-run-form single-run-submit-form"
@@ -97,7 +99,7 @@
 
                 <label>
                     <span>Reel</span>
-                    <select name="reelId" required th:disabled="${#lists.isEmpty(reels)}">
+                    <select name="reelId" required th:disabled="${singleRunLocked or #lists.isEmpty(reels)}">
                         <option th:if="${#lists.isEmpty(reels)}" value="">No reels available</option>
                         <option th:each="reel : ${reels}"
                                 th:value="${reel.reelId}"
@@ -110,25 +112,29 @@
 
                 <button class="single-run-submit-button"
                         type="submit"
-                        th:disabled="${batchStatus.running or runnableCount == 0 or selectedModelId == 0 or selectedTechniqueId == 0}">
+                        th:disabled="${singleRunLocked or runnableCount == 0 or selectedModelId == 0 or selectedTechniqueId == 0}">
                     Run Single Experiment
                 </button>
             </form>
 
-            <div id="singleExperimentProgress" class="single-experiment-progress" hidden>
+            <div id="singleExperimentProgress"
+                 class="single-experiment-progress"
+                 th:hidden="${!singleRunStatus.running}"
+                 th:attr="data-running=${singleRunStatus.running}">
                 <div class="batch-progress-header">
                     <span class="badge pending">Running</span>
                     <strong>Single experiment is processing</strong>
-                    <span>Elapsed: <strong id="singleExperimentElapsed">0s</strong></span>
+                    <span>Elapsed: <strong id="singleExperimentElapsed" th:text="${singleRunStatus.elapsedSeconds + 's'}">0s</strong></span>
                 </div>
                 <progress aria-label="Single experiment progress"></progress>
                 <div class="batch-progress-details">
-                    <span>Model: <strong id="singleExperimentModelName">-</strong></span>
-                    <span>Prompt: <strong id="singleExperimentTechniqueName">-</strong></span>
-                    <span>Stage: <strong id="singleExperimentStage">Preparing request</strong></span>
+                    <span>Reel: <strong id="singleExperimentReelName" th:text="${singleRunStatus.reelInstagramId == null ? '-' : singleRunStatus.reelInstagramId}">-</strong></span>
+                    <span>Model: <strong id="singleExperimentModelName" th:text="${singleRunStatus.modelName == null ? '-' : singleRunStatus.modelName}">-</strong></span>
+                    <span>Prompt: <strong id="singleExperimentTechniqueName" th:text="${singleRunStatus.techniqueName == null ? '-' : singleRunStatus.techniqueName}">-</strong></span>
+                    <span>Stage: <strong id="singleExperimentStage" th:text="${singleRunStatus.stage == null ? 'Preparing request' : singleRunStatus.stage}">Preparing request</strong></span>
                 </div>
                 <p>
-                    Ollama is generating the nutrition JSON. After it finishes, this page opens the existing View Result screen.
+                    Ollama is generating the nutrition JSON. You can move to another page and return here to see the same running status.
                 </p>
             </div>
         </section>
@@ -180,15 +186,10 @@
                         <td>
                             <span th:class="${reel.groundTruthAvailable ? 'badge ok' : 'badge pending'}"
                                   th:text="${reel.groundTruthAvailable ? 'Ready' : 'Missing'}">Ready</span>
-                            <span class="muted"
-                                  th:text="${reel.groundTruthIngredientCount + ' ingredients'}">0 ingredients</span>
                         </td>
                         <td>
                             <span th:class="${reel.resultId != null ? 'badge ok' : (reel.running() ? 'badge pending' : 'badge missing')}"
                                   th:text="${reel.resultStatusLabel()}">No result</span>
-                            <span class="muted"
-                                  th:if="${reel.jsonValid != null}"
-                                  th:text="${reel.jsonValid ? 'Valid JSON' : 'Invalid JSON'}">JSON</span>
                         </td>
                         <td>
                             <a th:if="${reel.resultId != null}"
@@ -199,7 +200,10 @@
                             <span th:if="${reel.running()}" class="badge pending">
                                 Running
                             </span>
-                            <form th:if="${reel.resultId == null && reel.canRunExperiment()}"
+                            <span th:if="${!reel.running() && reel.resultId == null && reel.canRunExperiment() && singleRunLocked}" class="badge pending">
+                                Wait for running reel
+                            </span>
+                            <form th:if="${reel.resultId == null && reel.canRunExperiment() && !singleRunLocked}"
                                   class="inline-run-form single-run-submit-form"
                                   method="post"
                                   th:action="@{/single-run/run}"
@@ -208,8 +212,7 @@
                                 <input type="hidden" name="modelId" th:value="${selectedModelId}">
                                 <input type="hidden" name="techniqueId" th:value="${selectedTechniqueId}">
                                 <button class="small-button single-run-submit-button"
-                                        type="submit"
-                                        th:disabled="${batchStatus.running}">
+                                        type="submit">
                                     Run Experiment
                                 </button>
                             </form>
@@ -228,50 +231,77 @@
     const singleRunForms = document.querySelectorAll(".single-run-submit-form");
     const singleExperimentProgress = document.getElementById("singleExperimentProgress");
     const singleExperimentElapsed = document.getElementById("singleExperimentElapsed");
+    const singleExperimentReelName = document.getElementById("singleExperimentReelName");
     const singleExperimentModelName = document.getElementById("singleExperimentModelName");
     const singleExperimentTechniqueName = document.getElementById("singleExperimentTechniqueName");
     const singleExperimentStage = document.getElementById("singleExperimentStage");
     const singleRunButtons = document.querySelectorAll(".single-run-submit-button");
-    let singleRunTimer = null;
+    let singleRunPollTimer = null;
+
+    function setButtonsDisabled(disabled) {
+        singleRunButtons.forEach(function (button) {
+            button.disabled = disabled;
+        });
+    }
 
     function showSingleRunError(message) {
         singleExperimentStage.textContent = message || "Single experiment failed";
-        singleRunButtons.forEach(function (button) {
-            button.disabled = false;
-        });
+        setButtonsDisabled(false);
+    }
+
+    function showStatus(status) {
+        singleExperimentProgress.hidden = false;
+        singleExperimentReelName.textContent = status.reelInstagramId || "-";
+        singleExperimentModelName.textContent = status.modelName || "-";
+        singleExperimentTechniqueName.textContent = status.techniqueName || "-";
+        singleExperimentStage.textContent = status.stage || "Preparing request";
+        singleExperimentElapsed.textContent = `${status.elapsedSeconds || 0}s`;
+        setButtonsDisabled(status.running);
+    }
+
+    async function refreshSingleRunStatus() {
+        try {
+            const response = await fetch("/single-run/status", {cache: "no-store"});
+            if (!response.ok) {
+                return;
+            }
+            const status = await response.json();
+            showStatus(status);
+
+            if (status.running) {
+                singleRunPollTimer = window.setTimeout(refreshSingleRunStatus, 2000);
+                return;
+            }
+
+            if (status.completed && status.resultUrl) {
+                singleExperimentStage.textContent = "Opening result page";
+                window.location.href = status.resultUrl;
+                return;
+            }
+
+            if (status.failed) {
+                showSingleRunError(status.errorMessage || "Single experiment failed");
+            }
+        } catch (error) {
+            singleRunPollTimer = window.setTimeout(refreshSingleRunStatus, 4000);
+        }
     }
 
     singleRunForms.forEach(function (form) {
         form.addEventListener("submit", async function (event) {
             event.preventDefault();
-            const startedAt = Date.now();
-            const stages = [
-                "Preparing request",
-                "Reading transcript file",
-                "Building prompt",
-                "Waiting for Ollama response",
-                "Parsing JSON output",
-                "Saving result to database"
-            ];
 
             singleExperimentProgress.hidden = false;
             singleExperimentModelName.textContent = form.dataset.modelName || "-";
             singleExperimentTechniqueName.textContent = form.dataset.techniqueName || "-";
-            singleExperimentStage.textContent = stages[0];
-            singleRunButtons.forEach(function (button) {
-                button.disabled = true;
-            });
+            singleExperimentStage.textContent = "Preparing request";
+            singleExperimentElapsed.textContent = "0s";
+            setButtonsDisabled(true);
             singleExperimentProgress.scrollIntoView({ behavior: "smooth", block: "center" });
 
-            if (singleRunTimer !== null) {
-                window.clearInterval(singleRunTimer);
+            if (singleRunPollTimer !== null) {
+                window.clearTimeout(singleRunPollTimer);
             }
-            singleRunTimer = window.setInterval(function () {
-                const seconds = Math.floor((Date.now() - startedAt) / 1000);
-                const stageIndex = Math.min(stages.length - 1, Math.floor(seconds / 8));
-                singleExperimentElapsed.textContent = seconds + "s";
-                singleExperimentStage.textContent = stages[stageIndex];
-            }, 1000);
 
             try {
                 const response = await fetch(form.dataset.apiAction, {
@@ -285,13 +315,17 @@
                     return;
                 }
 
-                singleExperimentStage.textContent = "Opening result page";
-                window.location.href = result.redirectUrl;
+                await refreshSingleRunStatus();
             } catch (error) {
                 showSingleRunError("Could not finish the single run request");
             }
         });
     });
+
+    if (singleExperimentProgress.dataset.running === "true") {
+        setButtonsDisabled(true);
+        refreshSingleRunStatus();
+    }
 </script>
 </body>
 </html>

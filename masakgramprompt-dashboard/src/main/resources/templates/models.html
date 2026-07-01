@@ -35,8 +35,33 @@
             </div>
         </header>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
         <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
+
+        <section class="summary-grid model-summary-grid" aria-label="Model experiment status">
+            <article class="metric">
+                <span>Total Runs</span>
+                <strong th:text="${#aggregates.sum(models.![status.total])}">0</strong>
+            </article>
+            <article class="metric">
+                <span>Completed</span>
+                <strong th:text="${#aggregates.sum(models.![status.completed])}">0</strong>
+            </article>
+            <article class="metric">
+                <span>Running</span>
+                <strong th:text="${#aggregates.sum(models.![status.running])}">0</strong>
+            </article>
+            <article class="metric">
+                <span>Pending</span>
+                <strong th:text="${#aggregates.sum(models.![status.pending])}">0</strong>
+            </article>
+            <article class="metric">
+                <span>Failed</span>
+                <strong th:text="${#aggregates.sum(models.![status.failed])}">0</strong>
+            </article>
+        </section>
 
         <section class="model-grid" aria-label="LLM models">
             <article class="model-card" th:each="model : ${models}">

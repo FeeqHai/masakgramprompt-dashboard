@@ -2,7 +2,11 @@ package my.utem.ftmk.masakgramprompt.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
+import my.utem.ftmk.masakgramprompt.model.SingleRunStatus;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -21,6 +25,9 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.springframework.core.io.ClassPathResource;
 @Service
@@ -30,6 +37,9 @@ public class LlmExperimentRunnerService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final String ollamaBaseUrl;
+    private final AtomicInteger activeRuns = new AtomicInteger(0);
+    private final ExecutorService singleRunExecutor = Executors.newSingleThreadExecutor();
+    private final SingleRunStatus singleRunStatus = new SingleRunStatus();
 
     public LlmExperimentRunnerService(
             JdbcTemplate jdbcTemplate,
@@ -59,39 +69,148 @@ public class LlmExperimentRunnerService {
     }
 
     public int run(int reelId, int modelId, int techniqueId, Consumer<String> stageListener) {
-        long startedAtNanos = System.nanoTime();
-        stageListener.accept("Preparing request");
-        TranscriptInput transcript = loadTranscript(reelId);
-        ModelInput model = loadModel(modelId);
-        PromptInput prompt = loadPrompt(techniqueId);
+        activeRuns.incrementAndGet();
+        try {
+            long startedAtNanos = System.nanoTime();
+            stageListener.accept("Preparing request");
+            TranscriptInput transcript = loadTranscript(reelId);
+            ModelInput model = loadModel(modelId);
+            PromptInput prompt = loadPrompt(techniqueId);
 
-        int experimentId = findOrCreateExperiment(transcript.transcriptId(), modelId, techniqueId);
-        clearPreviousResults(experimentId);
-        markExperimentRunning(experimentId);
+            int experimentId = findOrCreateExperiment(transcript.transcriptId(), modelId, techniqueId);
+            clearPreviousResults(experimentId);
+            markExperimentRunning(experimentId);
+
+            try {
+                stageListener.accept("Reading transcript file");
+                Path transcriptPath = resolveProjectFile(transcript.filePath());
+                String transcriptText = cleanTranscript(Files.readString(transcriptPath, StandardCharsets.UTF_8));
+                stageListener.accept("Building prompt");
+                String userPrompt = prompt.userPrompt().replace("{{TRANSCRIPT}}", transcriptText);
+                stageListener.accept("Waiting for Ollama response");
+                String rawOutput = callOllama(model.modelTag(), prompt.systemPrompt(), userPrompt);
+                stageListener.accept("Parsing JSON output");
+                boolean jsonValid = isValidJson(rawOutput);
+
+                stageListener.accept("Saving result to database");
+                int resultId = insertNutritionResult(experimentId, rawOutput, jsonValid);
+                if (jsonValid) {
+                    insertIngredientResults(resultId, rawOutput);
+                }
+
+                markExperimentFinished(experimentId, "completed", elapsedMilliseconds(startedAtNanos));
+                return experimentId;
+            } catch (Exception ex) {
+                markExperimentFinished(experimentId, "failed", elapsedMilliseconds(startedAtNanos));
+                throw new IllegalStateException("Experiment failed: " + ex.getMessage(), ex);
+            }
+        } finally {
+            activeRuns.decrementAndGet();
+        }
+    }
+
+    public synchronized boolean startSingleRun(int reelId, int modelId, int techniqueId) {
+        if (singleRunStatus.isRunning()) {
+            return false;
+        }
+
+        singleRunStatus.setRunning(true);
+        singleRunStatus.setCompleted(false);
+        singleRunStatus.setFailed(false);
+        singleRunStatus.setReelId(reelId);
+        singleRunStatus.setReelInstagramId(loadReelInstagramId(reelId));
+        singleRunStatus.setModelId(modelId);
+        singleRunStatus.setModelName(loadModelName(modelId));
+        singleRunStatus.setTechniqueId(techniqueId);
+        singleRunStatus.setTechniqueName(loadTechniqueName(techniqueId));
+        singleRunStatus.setStage("Preparing request");
+        singleRunStatus.setResultUrl(null);
+        singleRunStatus.setErrorMessage(null);
+        singleRunStatus.setStartedAt(java.time.LocalDateTime.now());
+        singleRunStatus.setFinishedAt(null);
+
+        singleRunExecutor.submit(() -> runSingleInBackground(reelId, modelId, techniqueId));
+        return true;
+    }
+
+    public synchronized SingleRunStatus getSingleRunStatus() {
+        SingleRunStatus copy = new SingleRunStatus();
+        copy.setRunning(singleRunStatus.isRunning());
+        copy.setCompleted(singleRunStatus.isCompleted());
+        copy.setFailed(singleRunStatus.isFailed());
+        copy.setReelId(singleRunStatus.getReelId());
+        copy.setReelInstagramId(singleRunStatus.getReelInstagramId());
+        copy.setModelId(singleRunStatus.getModelId());
+        copy.setModelName(singleRunStatus.getModelName());
+        copy.setTechniqueId(singleRunStatus.getTechniqueId());
+        copy.setTechniqueName(singleRunStatus.getTechniqueName());
+        copy.setStage(singleRunStatus.getStage());
+        copy.setResultUrl(singleRunStatus.getResultUrl());
+        copy.setErrorMessage(singleRunStatus.getErrorMessage());
+        copy.setStartedAt(singleRunStatus.getStartedAt());
+        copy.setFinishedAt(singleRunStatus.getFinishedAt());
+        return copy;
+    }
+
+    private void runSingleInBackground(int reelId, int modelId, int techniqueId) {
+        try {
+            run(reelId, modelId, techniqueId, this::updateSingleRunStage);
+            synchronized (this) {
+                singleRunStatus.setRunning(false);
+                singleRunStatus.setCompleted(true);
+                singleRunStatus.setFailed(false);
+                singleRunStatus.setStage("Completed");
+                singleRunStatus.setResultUrl(
+                        "/models/" + modelId + "/techniques/" + techniqueId + "/reels/" + reelId + "/result"
+                );
+                singleRunStatus.setFinishedAt(java.time.LocalDateTime.now());
+            }
+        } catch (Exception ex) {
+            synchronized (this) {
+                singleRunStatus.setRunning(false);
+                singleRunStatus.setCompleted(false);
+                singleRunStatus.setFailed(true);
+                singleRunStatus.setStage("Failed");
+                singleRunStatus.setErrorMessage(ex.getMessage());
+                singleRunStatus.setFinishedAt(java.time.LocalDateTime.now());
+            }
+        }
+    }
+
+    private synchronized void updateSingleRunStage(String stage) {
+        singleRunStatus.setStage(stage);
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void recoverInterruptedExperimentsOnStartup() {
+        recoverInterruptedExperiments();
+    }
+
+    public int recoverInterruptedExperiments() {
+        if (activeRuns.get() > 0) {
+            return 0;
+        }
 
         try {
-            stageListener.accept("Reading transcript file");
-        	Path transcriptPath = resolveProjectFile(transcript.filePath());
-        	String transcriptText = cleanTranscript(Files.readString(transcriptPath, StandardCharsets.UTF_8));
-            stageListener.accept("Building prompt");
-            String userPrompt = prompt.userPrompt().replace("{{TRANSCRIPT}}", transcriptText);
-            stageListener.accept("Waiting for Ollama response");
-            String rawOutput = callOllama(model.modelTag(), prompt.systemPrompt(), userPrompt);
-            stageListener.accept("Parsing JSON output");
-            boolean jsonValid = isValidJson(rawOutput);
-
-            stageListener.accept("Saving result to database");
-            int resultId = insertNutritionResult(experimentId, rawOutput, jsonValid);
-            if (jsonValid) {
-                insertIngredientResults(resultId, rawOutput);
-            }
-
-            markExperimentFinished(experimentId, "completed", elapsedMilliseconds(startedAtNanos));
-            return experimentId;
+            return jdbcTemplate.update("""
+                    UPDATE experiment
+                    SET status = 'failed',
+                        finished_at = COALESCE(finished_at, NOW()),
+                        processing_time_ms = CASE
+                            WHEN started_at IS NULL THEN processing_time_ms
+                            ELSE TIMESTAMPDIFF(MICROSECOND, started_at, NOW()) DIV 1000
+                        END
+                    WHERE status = 'running'
+                    """);
         } catch (Exception ex) {
-            markExperimentFinished(experimentId, "failed", elapsedMilliseconds(startedAtNanos));
-            throw new IllegalStateException("Experiment failed: " + ex.getMessage(), ex);
+            System.err.println("Interrupted experiment recovery was skipped: " + ex.getMessage());
+            return 0;
         }
+    }
+
+    @PreDestroy
+    public void shutdownSingleRunExecutor() {
+        singleRunExecutor.shutdown();
     }
 
     private TranscriptInput loadTranscript(int reelId) {
@@ -117,6 +236,39 @@ public class LlmExperimentRunnerService {
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Model not found: " + modelId));
+    }
+
+    private String loadModelName(int modelId) {
+        return jdbcTemplate.query("""
+                SELECT model_name
+                FROM llm_model
+                WHERE model_id = ?
+                """, (rs, rowNum) -> rs.getString("model_name"), modelId)
+                .stream()
+                .findFirst()
+                .orElse("Unknown model");
+    }
+
+    private String loadTechniqueName(int techniqueId) {
+        return jdbcTemplate.query("""
+                SELECT technique_name
+                FROM prompt_technique
+                WHERE technique_id = ?
+                """, (rs, rowNum) -> rs.getString("technique_name"), techniqueId)
+                .stream()
+                .findFirst()
+                .orElse("Unknown prompt");
+    }
+
+    private String loadReelInstagramId(int reelId) {
+        return jdbcTemplate.query("""
+                SELECT reel_id_instagram
+                FROM reel
+                WHERE reel_id = ?
+                """, (rs, rowNum) -> rs.getString("reel_id_instagram"), reelId)
+                .stream()
+                .findFirst()
+                .orElse("Reel " + reelId);
     }
 
     private PromptInput loadPrompt(int techniqueId) {

@@ -49,6 +49,8 @@
             Experiment failed.
         </div>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <section class="summary-grid" aria-label="Reel readiness">
             <article class="metric">
                 <span>Audio</span>
@@ -225,7 +227,9 @@
                         </option>
                     </select>
                 </label>
-                <button id="singleExperimentButton" type="submit" th:disabled="${transcript == null}">
+                <button id="singleExperimentButton"
+                        type="submit"
+                        th:disabled="${transcript == null or singleRunStatus.running or batchStatus.running}">
                     Run Experiment
                 </button>
             </form>

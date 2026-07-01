@@ -35,6 +35,8 @@
             </div>
         </header>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <section class="summary-grid">
             <article class="metric"><span>Total Completed Runs</span><strong th:text="${page.totalCompletedRuns}">0</strong></article>
             <article class="metric"><span>Fastest Model</span><strong th:text="${page.fastestModel}">-</strong></article>

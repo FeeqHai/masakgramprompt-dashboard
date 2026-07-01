@@ -1,6 +1,7 @@
 package my.utem.ftmk.masakgramprompt.controller;
 
 import my.utem.ftmk.masakgramprompt.model.BatchRunStatus;
+import my.utem.ftmk.masakgramprompt.model.SingleRunStatus;
 import my.utem.ftmk.masakgramprompt.service.DashboardService;
 import my.utem.ftmk.masakgramprompt.service.BatchExperimentService;
 import my.utem.ftmk.masakgramprompt.service.CsvExportService;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -67,6 +69,14 @@ public class DashboardController {
         return "redirect:/models";
     }
 
+    @ModelAttribute("singleRunStatus")
+    public SingleRunStatus singleRunStatus() {
+        if (!llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+            llmExperimentRunnerService.recoverInterruptedExperiments();
+        }
+        return llmExperimentRunnerService.getSingleRunStatus();
+    }
+
     @GetMapping("/dashboard")
     public String dashboard(Model model) {
         model.addAttribute("summary", dashboardService.getSummary());
@@ -95,8 +105,14 @@ public class DashboardController {
 
     @GetMapping("/models")
     public String models(Model model) {
+        var models = reviewDashboardService.findModelCards();
         model.addAttribute("activePage", "models");
-        model.addAttribute("models", reviewDashboardService.findModelCards());
+        model.addAttribute("models", models);
+        model.addAttribute("modelTotalExperimentCount", sumModelStatus(models, "total"));
+        model.addAttribute("modelCompletedExperimentCount", sumModelStatus(models, "completed"));
+        model.addAttribute("modelRunningExperimentCount", sumModelStatus(models, "running"));
+        model.addAttribute("modelPendingExperimentCount", sumModelStatus(models, "pending"));
+        model.addAttribute("modelFailedExperimentCount", sumModelStatus(models, "failed"));
         return "models";
     }
 
@@ -117,6 +133,7 @@ public class DashboardController {
             @PathVariable int techniqueId,
             Model model
     ) {
+        llmExperimentRunnerService.recoverInterruptedExperiments();
         var selectedModel = reviewDashboardService.findModelCard(modelId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Model not found"));
         var selectedTechnique = reviewDashboardService.findTechniqueCard(modelId, techniqueId)
@@ -174,6 +191,7 @@ public class DashboardController {
             @RequestParam(name = "techniqueId", required = false) Integer techniqueId,
             Model model
     ) {
+        llmExperimentRunnerService.recoverInterruptedExperiments();
         var models = reviewDashboardService.findModelCards();
         int selectedModelId = modelId == null && !models.isEmpty() ? models.get(0).modelId() : modelId == null ? 0 : modelId;
         List<ReviewDashboardService.TechniqueCard> techniques = selectedModelId == 0
@@ -191,6 +209,12 @@ public class DashboardController {
         long runnableCount = reels.stream()
                 .filter(ReviewDashboardService.ReelReviewRow::canRunExperiment)
                 .count();
+        SingleRunStatus currentSingleRunStatus = llmExperimentRunnerService.getSingleRunStatus();
+        boolean selectedConditionRunning = reels.stream()
+                .anyMatch(ReviewDashboardService.ReelReviewRow::running);
+        boolean singleRunLocked = batchExperimentService.getStatus().isRunning()
+                || selectedConditionRunning
+                || currentSingleRunStatus.isRunning();
 
         model.addAttribute("activePage", "single-run");
         model.addAttribute("models", models);
@@ -202,6 +226,8 @@ public class DashboardController {
         model.addAttribute("reels", reels);
         model.addAttribute("untestedCount", untestedCount);
         model.addAttribute("runnableCount", runnableCount);
+        model.addAttribute("selectedConditionRunning", selectedConditionRunning);
+        model.addAttribute("singleRunLocked", singleRunLocked);
         model.addAttribute("batchStatus", batchExperimentService.getStatus());
         return "single-run";
     }
@@ -236,6 +262,23 @@ public class DashboardController {
             RedirectAttributes redirectAttributes
     ) {
         try {
+            if (!llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+                llmExperimentRunnerService.recoverInterruptedExperiments();
+            }
+            if (llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage",
+                        "A single run is already active. Wait for it to finish first."
+                );
+                return "redirect:/single-run?modelId=" + modelId + "&techniqueId=" + techniqueId;
+            }
+            if (selectedConditionHasRunningExperiment(modelId, techniqueId)) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage",
+                        "A reel is already running for this model and prompt. Wait for it to finish first."
+                );
+                return "redirect:/single-run?modelId=" + modelId + "&techniqueId=" + techniqueId;
+            }
             int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
             redirectAttributes.addFlashAttribute(
                     "successMessage",
@@ -255,17 +298,55 @@ public class DashboardController {
             @RequestParam int techniqueId
     ) {
         try {
-            int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
+            if (!llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+                llmExperimentRunnerService.recoverInterruptedExperiments();
+            }
+            if (llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+                return ResponseEntity
+                        .badRequest()
+                        .body(new SingleRunResponse(
+                                false,
+                                null,
+                                "A single run is already active. Wait for it to finish first."
+                        ));
+            }
+            if (selectedConditionHasRunningExperiment(modelId, techniqueId)) {
+                return ResponseEntity
+                        .badRequest()
+                        .body(new SingleRunResponse(
+                                false,
+                                null,
+                                "A reel is already running for this model and prompt. Wait for it to finish first."
+                        ));
+            }
+            boolean started = llmExperimentRunnerService.startSingleRun(reelId, modelId, techniqueId);
+            if (!started) {
+                return ResponseEntity
+                        .badRequest()
+                        .body(new SingleRunResponse(
+                                false,
+                                null,
+                                "A single run is already active. Wait for it to finish first."
+                        ));
+            }
             return ResponseEntity.ok(new SingleRunResponse(
                     true,
-                    "/models/" + modelId + "/techniques/" + techniqueId + "/reels/" + reelId + "/result",
-                    "Single experiment " + experimentId + " completed."
+                    null,
+                    "Single experiment started."
             ));
         } catch (Exception ex) {
             return ResponseEntity
                     .badRequest()
                     .body(new SingleRunResponse(false, null, "Single experiment failed: " + ex.getMessage()));
         }
+    }
+
+    @GetMapping("/single-run/status")
+    public ResponseEntity<SingleRunStatus> singleRunStatusJson() {
+        if (!llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+            llmExperimentRunnerService.recoverInterruptedExperiments();
+        }
+        return ResponseEntity.ok(llmExperimentRunnerService.getSingleRunStatus());
     }
 
     public record SingleRunResponse(boolean success, String redirectUrl, String message) {
@@ -388,6 +469,7 @@ public class DashboardController {
         model.addAttribute("ingredientResults", dashboardService.findIngredientResultsByReelId(reelId));
         model.addAttribute("models", dashboardService.findModelOptions());
         model.addAttribute("techniques", dashboardService.findPromptTechniqueOptions());
+        model.addAttribute("batchStatus", batchExperimentService.getStatus());
 
         return "reel-detail";
     }
@@ -400,6 +482,23 @@ public class DashboardController {
             RedirectAttributes redirectAttributes
     ) {
         try {
+            if (!llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+                llmExperimentRunnerService.recoverInterruptedExperiments();
+            }
+            if (llmExperimentRunnerService.getSingleRunStatus().isRunning()) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage",
+                        "A single run is already active. Wait for it to finish first."
+                );
+                return "redirect:/reels/" + reelId + "#experiments";
+            }
+            if (batchExperimentService.getStatus().isRunning()) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage",
+                        "A batch is already running. Wait for it to finish first."
+                );
+                return "redirect:/reels/" + reelId + "#experiments";
+            }
             int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
             redirectAttributes.addFlashAttribute(
                     "successMessage",
@@ -462,5 +561,23 @@ public class DashboardController {
                 .map(ReviewDashboardService.TechniqueCard::techniqueName)
                 .findFirst()
                 .orElse("-");
+    }
+
+    private boolean selectedConditionHasRunningExperiment(int modelId, int techniqueId) {
+        return reviewDashboardService.findReelRows(modelId, techniqueId).stream()
+                .anyMatch(ReviewDashboardService.ReelReviewRow::running);
+    }
+
+    private long sumModelStatus(List<ReviewDashboardService.ModelCard> models, String statusName) {
+        return models.stream()
+                .map(ReviewDashboardService.ModelCard::status)
+                .mapToLong(status -> switch (statusName) {
+                    case "completed" -> status.completed();
+                    case "running" -> status.running();
+                    case "pending" -> status.pending();
+                    case "failed" -> status.failed();
+                    default -> status.total();
+                })
+                .sum();
     }
 }

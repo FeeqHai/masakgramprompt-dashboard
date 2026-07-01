@@ -40,6 +40,8 @@
             </div>
         </header>
 
+        <div th:replace="~{fragments/single-run-status :: banner}"></div>
+
         <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
         <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
 

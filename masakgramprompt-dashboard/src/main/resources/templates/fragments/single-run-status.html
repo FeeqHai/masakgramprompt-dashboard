@@ -1,0 +1,74 @@
+<div xmlns:th="http://www.thymeleaf.org"
+     th:fragment="banner"
+     th:if="${activePage != 'single-run'}"
+     th:hidden="${singleRunStatus == null or !singleRunStatus.running}"
+     th:attr="data-running=${singleRunStatus != null and singleRunStatus.running}"
+     class="notice neutral single-run-global-status"
+     data-single-run-banner>
+    <strong>Single run is processing</strong>
+    <span data-single-run-reel
+          th:text="${'Reel: ' + (singleRunStatus == null or singleRunStatus.reelInstagramId == null ? '-' : singleRunStatus.reelInstagramId)}">Reel</span>
+    <span data-single-run-model
+          th:text="${'Model: ' + (singleRunStatus == null or singleRunStatus.modelName == null ? '-' : singleRunStatus.modelName)}">Model</span>
+    <span data-single-run-prompt
+          th:text="${'Prompt: ' + (singleRunStatus == null or singleRunStatus.techniqueName == null ? '-' : singleRunStatus.techniqueName)}">Prompt</span>
+    <span data-single-run-stage
+          th:text="${'Stage: ' + (singleRunStatus == null or singleRunStatus.stage == null ? 'Preparing request' : singleRunStatus.stage)}">Stage</span>
+    <span data-single-run-elapsed
+          th:text="${'Elapsed: ' + (singleRunStatus == null ? 0 : singleRunStatus.elapsedSeconds) + 's'}">Elapsed</span>
+    <a href="/single-run">View progress</a>
+    <script>
+        (function () {
+            const banner = document.querySelector("[data-single-run-banner]");
+            if (!banner) {
+                return;
+            }
+
+            function setText(selector, text) {
+                const element = banner.querySelector(selector);
+                if (element) {
+                    element.textContent = text;
+                }
+            }
+
+            function showStatus(status) {
+                if (!status || !status.running) {
+                    banner.hidden = true;
+                    banner.dataset.running = "false";
+                    return false;
+                }
+
+                banner.hidden = false;
+                banner.dataset.running = "true";
+                setText("[data-single-run-reel]", "Reel: " + (status.reelInstagramId || "-"));
+                setText("[data-single-run-model]", "Model: " + (status.modelName || "-"));
+                setText("[data-single-run-prompt]", "Prompt: " + (status.techniqueName || "-"));
+                setText("[data-single-run-stage]", "Stage: " + (status.stage || "Preparing request"));
+                setText("[data-single-run-elapsed]", "Elapsed: " + (status.elapsedSeconds || 0) + "s");
+                return true;
+            }
+
+            async function refreshSingleRunBanner() {
+                try {
+                    const response = await fetch("/single-run/status", {cache: "no-store"});
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const status = await response.json();
+                    if (showStatus(status)) {
+                        window.setTimeout(refreshSingleRunBanner, 2000);
+                    }
+                } catch (error) {
+                    if (!banner.hidden) {
+                        window.setTimeout(refreshSingleRunBanner, 4000);
+                    }
+                }
+            }
+
+            if (banner.dataset.running === "true") {
+                refreshSingleRunBanner();
+            }
+        }());
+    </script>
+</div>
