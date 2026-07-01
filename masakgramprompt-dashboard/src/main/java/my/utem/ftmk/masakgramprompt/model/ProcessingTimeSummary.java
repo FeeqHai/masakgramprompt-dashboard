@@ -1,5 +1,8 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+/**
+ * Holds completed-run timing statistics for one model and prompt technique.
+ */
 public class ProcessingTimeSummary {
 
     private String modelName;

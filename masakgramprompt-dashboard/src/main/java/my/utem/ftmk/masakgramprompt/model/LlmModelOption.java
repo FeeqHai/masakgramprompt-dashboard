@@ -1,5 +1,8 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+/**
+ * Simple dropdown option for selecting an LLM model.
+ */
 public class LlmModelOption {
 
     private int modelId;

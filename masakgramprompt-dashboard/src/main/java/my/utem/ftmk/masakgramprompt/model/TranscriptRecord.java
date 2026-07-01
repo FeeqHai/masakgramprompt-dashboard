@@ -2,6 +2,9 @@ package my.utem.ftmk.masakgramprompt.model;
 
 import java.time.LocalDateTime;
 
+/**
+ * Represents one transcript row and its verification metadata.
+ */
 public class TranscriptRecord {
 
     private int transcriptId;

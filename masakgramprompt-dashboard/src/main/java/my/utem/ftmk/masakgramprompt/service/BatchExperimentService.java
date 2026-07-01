@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Runs batch experiments in the background and stores live progress for the UI.
+ */
 @Service
 public class BatchExperimentService {
 
@@ -69,6 +72,9 @@ public class BatchExperimentService {
         return true;
     }
 
+    /**
+     * Returns a copy of the current batch progress so callers cannot mutate shared state.
+     */
     public synchronized BatchRunStatus getStatus() {
         BatchRunStatus copy = new BatchRunStatus();
         copy.setRunning(status.isRunning());
@@ -87,6 +93,9 @@ public class BatchExperimentService {
         return copy;
     }
 
+    /**
+     * Processes every selected technique against every transcript-bearing reel.
+     */
     private void runBatch(List<ReelInput> reels, int modelId, List<Integer> techniqueIds) {
         try {
             for (Integer techniqueId : techniqueIds) {
@@ -138,10 +147,16 @@ public class BatchExperimentService {
         }
     }
 
+    /**
+     * Receives detailed stage text from the LLM runner while a reel is processing.
+     */
     private synchronized void updateStage(String stage) {
         status.setStage(stage);
     }
 
+    /**
+     * Loads only reels that already have transcript records and can be sent to the LLM.
+     */
     private List<ReelInput> loadReelsWithTranscript() {
         return jdbcTemplate.query("""
                 SELECT r.reel_id, r.reel_id_instagram
@@ -154,6 +169,9 @@ public class BatchExperimentService {
         ));
     }
 
+    /**
+     * Finds the display name shown in the live batch progress panel.
+     */
     private String loadModelName(int modelId) {
         return jdbcTemplate.query(
                 "SELECT model_name FROM llm_model WHERE model_id = ?",
@@ -165,6 +183,9 @@ public class BatchExperimentService {
                 .orElseThrow(() -> new IllegalStateException("Model not found: " + modelId));
     }
 
+    /**
+     * Finds the prompt technique name shown while a technique is running.
+     */
     private String loadTechniqueName(int techniqueId) {
         return jdbcTemplate.query(
                 "SELECT technique_name FROM prompt_technique WHERE technique_id = ?",
@@ -176,6 +197,9 @@ public class BatchExperimentService {
                 .orElseThrow(() -> new IllegalStateException("Prompt technique not found: " + techniqueId));
     }
 
+    /**
+     * Joins selected prompt names for the initial batch status message.
+     */
     private String loadTechniqueNames(List<Integer> techniqueIds) {
         return techniqueIds.stream()
                 .map(this::loadTechniqueName)
@@ -183,6 +207,9 @@ public class BatchExperimentService {
                 .orElse("No technique selected");
     }
 
+    /**
+     * Stops the background executor when Spring shuts down the application.
+     */
     @PreDestroy
     public void shutdown() {
         executor.shutdown();

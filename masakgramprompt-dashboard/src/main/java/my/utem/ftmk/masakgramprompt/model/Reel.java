@@ -2,6 +2,9 @@ package my.utem.ftmk.masakgramprompt.model;
 
 import java.time.LocalDate;
 
+/**
+ * Holds reel metadata and readiness counters for dashboard and detail pages.
+ */
 public class Reel {
 
     private int reelId;

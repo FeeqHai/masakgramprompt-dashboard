@@ -3,6 +3,9 @@ package my.utem.ftmk.masakgramprompt.model;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
+/**
+ * Stores live progress for a batch experiment so the UI can poll and display it.
+ */
 public class BatchRunStatus {
 
     private boolean running;

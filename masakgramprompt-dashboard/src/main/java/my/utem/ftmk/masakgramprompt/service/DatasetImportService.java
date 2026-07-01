@@ -14,6 +14,9 @@ import java.nio.file.attribute.FileTime;
 import java.sql.Timestamp;
 import java.util.List;
 
+/**
+ * Synchronizes local audio and transcript files into the database metadata tables.
+ */
 @Service
 public class DatasetImportService {
 
@@ -29,6 +32,9 @@ public class DatasetImportService {
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    /**
+     * Runs a best-effort dataset sync after Spring Boot finishes starting.
+     */
     public void syncOnStartup() {
         try {
             DataSyncSummary summary = syncDataset();
@@ -42,6 +48,9 @@ public class DatasetImportService {
         }
     }
 
+    /**
+     * Scans the configured data directory and inserts or updates matching audio/transcript records.
+     */
     public DataSyncSummary syncDataset() {
         Path root = Path.of(dataDirectory).toAbsolutePath().normalize();
         Path audioDirectory = root.resolve("audio");
@@ -76,6 +85,9 @@ public class DatasetImportService {
         return new DataSyncSummary(audioSynced, transcriptSynced, missingAudio, missingTranscript);
     }
 
+    /**
+     * Loads reels so local files can be matched by Instagram ID or reel number.
+     */
     private List<ReelInput> loadReels() {
         return jdbcTemplate.query(
                 "SELECT reel_id, reel_id_instagram FROM reel ORDER BY reel_id",
@@ -83,6 +95,9 @@ public class DatasetImportService {
         );
     }
 
+    /**
+     * Inserts a new audio row or refreshes the existing row for the reel.
+     */
     private void syncAudio(int reelId, Path file) {
         FileMetadata metadata = readMetadata(file);
         Integer existingId = findAudioId(reelId);
@@ -115,6 +130,9 @@ public class DatasetImportService {
         );
     }
 
+    /**
+     * Inserts a new transcript row or refreshes the existing row linked to the reel audio.
+     */
     private void syncTranscript(int reelId, int audioId, Path file) {
         FileMetadata metadata = readMetadata(file);
         Integer existingId = jdbcTemplate.query(
@@ -153,6 +171,9 @@ public class DatasetImportService {
         );
     }
 
+    /**
+     * Returns the database audio id for a reel when audio metadata already exists.
+     */
     private Integer findAudioId(int reelId) {
         return jdbcTemplate.query(
                 "SELECT audio_id FROM audio_file WHERE reel_id = ? LIMIT 1",
@@ -161,6 +182,9 @@ public class DatasetImportService {
         ).stream().findFirst().orElse(null);
     }
 
+    /**
+     * Reads file metadata that is stored in audio_file and transcript rows.
+     */
     private FileMetadata readMetadata(Path file) {
         try {
             FileTime modifiedTime = Files.getLastModifiedTime(file);

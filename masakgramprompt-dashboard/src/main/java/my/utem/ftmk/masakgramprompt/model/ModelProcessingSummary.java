@@ -2,6 +2,9 @@ package my.utem.ftmk.masakgramprompt.model;
 
 import java.util.List;
 
+/**
+ * Groups processing-time summaries for one model across prompt techniques.
+ */
 public class ModelProcessingSummary {
 
     private String modelName;

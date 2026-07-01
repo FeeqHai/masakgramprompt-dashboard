@@ -51,6 +51,7 @@
 
         <div th:replace="~{fragments/single-run-status :: banner}"></div>
 
+        <!-- Quick readiness summary for the selected reel. -->
         <section class="summary-grid" aria-label="Reel readiness">
             <article class="metric">
                 <span>Audio</span>
@@ -72,6 +73,7 @@
             </article>
         </section>
 
+        <!-- Core metadata copied from the reel table. -->
         <section class="panel">
             <div class="panel-header">
                 <div>
@@ -107,6 +109,7 @@
             </dl>
         </section>
 
+        <!-- Audio metadata linked to this reel, if available. -->
         <section id="audio" class="panel">
             <div class="panel-header">
                 <div>
@@ -149,6 +152,7 @@
             </dl>
         </section>
 
+        <!-- Transcript metadata linked to this reel, if available. -->
         <section id="transcript" class="panel">
             <div class="panel-header">
                 <div>
@@ -191,6 +195,7 @@
             </dl>
         </section>
 
+        <!-- Legacy single experiment runner and saved experiment table for this reel. -->
         <section id="experiments" class="panel">
             <div class="panel-header">
                 <div>
@@ -362,6 +367,7 @@
     </main>
 </div>
 
+<!-- Modal used to inspect saved nutrition JSON and extracted ingredients without leaving the reel page. -->
 <div id="nutritionModal" class="modal-overlay" hidden aria-hidden="true">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="nutritionModalTitle">
         <div class="modal-header">
@@ -470,6 +476,7 @@
 
 <script>
     (function () {
+        // Handles the result modal and the lightweight progress display for the legacy run form.
         const modal = document.getElementById('nutritionModal');
         const closeButton = document.getElementById('nutritionModalClose');
         const warning = document.getElementById('nutritionModalWarning');

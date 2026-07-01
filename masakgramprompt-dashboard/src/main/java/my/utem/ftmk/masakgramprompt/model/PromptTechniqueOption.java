@@ -1,5 +1,8 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+/**
+ * Simple dropdown option for selecting a prompt technique.
+ */
 public class PromptTechniqueOption {
 
     private int techniqueId;

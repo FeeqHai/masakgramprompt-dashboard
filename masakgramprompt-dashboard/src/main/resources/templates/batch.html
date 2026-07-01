@@ -40,6 +40,7 @@
         <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
         <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
 
+        <!-- Batch setup form: choose one model and one or more prompt techniques. -->
         <section class="panel">
             <div class="panel-header">
                 <div>
@@ -115,6 +116,7 @@
             </form>
         </section>
 
+        <!-- Live backend progress for the currently running batch experiment. -->
         <section class="panel">
             <div class="panel-header">
                 <div>
@@ -151,6 +153,7 @@
             </div>
         </section>
 
+        <!-- Per-technique status totals for the selected model. -->
         <section class="panel">
             <div class="panel-header">
                 <div>
@@ -189,6 +192,7 @@
     </main>
 </div>
 <script>
+    // Polls the backend batch status endpoint and updates the progress panel in place.
     const batchProgress = document.getElementById("batch-progress");
     const batchRunButton = document.getElementById("batchRunButton");
     const batchTechniqueCheckboxes = document.querySelectorAll('input[name="techniqueIds"]');

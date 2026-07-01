@@ -5,6 +5,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+/**
+ * Adds missing timing columns used by experiment progress and performance pages.
+ */
 @Service
 public class ExperimentTrackingSchemaService {
 
@@ -14,6 +17,9 @@ public class ExperimentTrackingSchemaService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * Performs a safe startup migration for older database schemas.
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void addTrackingColumnsIfNeeded() {
         try {
@@ -25,6 +31,9 @@ public class ExperimentTrackingSchemaService {
         }
     }
 
+    /**
+     * Checks information_schema before running ALTER TABLE for one column.
+     */
     private void addColumnIfMissing(String columnName, String definition) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)

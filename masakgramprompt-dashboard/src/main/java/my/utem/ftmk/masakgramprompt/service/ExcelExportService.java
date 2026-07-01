@@ -18,6 +18,9 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Generates the Excel workbook used to inspect saved LLM experiment outputs.
+ */
 @Service
 public class ExcelExportService {
 
@@ -29,6 +32,9 @@ public class ExcelExportService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * Writes a multi-sheet workbook containing summary, result, and ingredient data.
+     */
     public void writeLlmResults(OutputStream outputStream) throws IOException {
         List<ResultRow> results = loadResults();
         List<IngredientRow> ingredients = loadIngredients();
@@ -46,6 +52,9 @@ public class ExcelExportService {
         }
     }
 
+    /**
+     * Creates a short overview sheet with export counts and run status totals.
+     */
     private void createSummarySheet(
             XSSFWorkbook workbook,
             CellStyle headerStyle,
@@ -86,6 +95,9 @@ public class ExcelExportService {
         sheet.createFreezePane(0, 3);
     }
 
+    /**
+     * Creates one row per experiment with model, prompt, nutrition, and JSON fields.
+     */
     private void createResultsSheet(
             XSSFWorkbook workbook,
             CellStyle headerStyle,
@@ -123,6 +135,9 @@ public class ExcelExportService {
         sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(0, rowIndex - 1), 0, headers.length - 1));
        }
 
+    /**
+     * Creates one row per extracted ingredient result.
+     */
     private void createIngredientsSheet(
             XSSFWorkbook workbook,
             CellStyle headerStyle,
@@ -156,6 +171,9 @@ public class ExcelExportService {
         sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(0, rowIndex - 1), 0, headers.length - 1));
     }
 
+    /**
+     * Creates the visual style used for workbook header rows.
+     */
     private CellStyle createHeaderStyle(XSSFWorkbook workbook) {
         Font font = workbook.createFont();
         font.setBold(true);
@@ -170,6 +188,9 @@ public class ExcelExportService {
         return style;
     }
 
+    /**
+     * Writes a header row and applies the shared header style.
+     */
     private void writeHeader(Sheet sheet, int rowIndex, String[] headers, CellStyle headerStyle) {
         Row row = sheet.createRow(rowIndex);
         for (int column = 0; column < headers.length; column++) {
@@ -179,12 +200,18 @@ public class ExcelExportService {
         }
     }
 
+    /**
+     * Applies fixed column widths so exported sheets are readable when opened.
+     */
     private void setColumnWidths(Sheet sheet, int[] widths) {
         for (int column = 0; column < widths.length; column++) {
             sheet.setColumnWidth(column, widths[column] * 256);
         }
     }
 
+    /**
+     * Writes a supported Java value into an Excel cell.
+     */
     private void setCell(Row row, int column, Object value, CellStyle style) {
         Cell cell = row.createCell(column);
         if (value == null) {
@@ -204,6 +231,9 @@ public class ExcelExportService {
         }
     }
 
+    /**
+     * Trims long raw JSON values to stay below Excel's cell character limit.
+     */
     private String shortenForExcel(String value) {
         if (value == null || value.length() <= EXCEL_CELL_TEXT_LIMIT) {
             return value;
@@ -211,6 +241,9 @@ public class ExcelExportService {
         return value.substring(0, EXCEL_CELL_TEXT_LIMIT) + "\n[Raw JSON shortened for the Excel cell limit]";
     }
 
+    /**
+     * Loads experiment and nutrition result rows for the workbook.
+     */
     private List<ResultRow> loadResults() {
         return jdbcTemplate.query("""
                 SELECT
@@ -267,6 +300,9 @@ public class ExcelExportService {
         ));
     }
 
+    /**
+     * Loads extracted ingredient rows for the workbook.
+     */
     private List<IngredientRow> loadIngredients() {
         return jdbcTemplate.query("""
                 SELECT
@@ -312,15 +348,24 @@ public class ExcelExportService {
         ));
     }
 
+    /**
+     * Reads a nullable integer from JDBC without converting null to zero.
+     */
     private Integer getIntegerOrNull(java.sql.ResultSet resultSet, String column) throws java.sql.SQLException {
         int value = resultSet.getInt(column);
         return resultSet.wasNull() ? null : value;
     }
 
+    /**
+     * Converts JDBC numeric values to nullable doubles.
+     */
     private Double getDoubleOrNull(Object value) {
         return value instanceof Number number ? number.doubleValue() : null;
     }
 
+    /**
+     * Converts JDBC boolean-like values to nullable booleans.
+     */
     private Boolean getBooleanOrNull(Object value) {
         if (value == null) {
             return null;

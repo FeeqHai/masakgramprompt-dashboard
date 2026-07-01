@@ -1,5 +1,8 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+/**
+ * Represents one ingredient extracted from an LLM nutrition result.
+ */
 public class IngredientResultRecord {
 
     private Integer ingredientResultId;

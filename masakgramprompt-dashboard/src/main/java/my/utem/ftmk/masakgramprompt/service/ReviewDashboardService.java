@@ -23,6 +23,9 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Builds the review-mode pages for models, techniques, reels, results, and performance analytics.
+ */
 @Service
 public class ReviewDashboardService {
 
@@ -92,6 +95,9 @@ public class ReviewDashboardService {
         ));
     }
 
+    /**
+     * Finds one model card by id from the model overview data.
+     */
     public Optional<ModelCard> findModelCard(int modelId) {
         return findModelCards().stream()
                 .filter(model -> model.modelId() == modelId)
@@ -127,6 +133,9 @@ public class ReviewDashboardService {
         ), modelId);
     }
 
+    /**
+     * Finds one prompt technique card for a selected model.
+     */
     public Optional<TechniqueCard> findTechniqueCard(int modelId, int techniqueId) {
         return findTechniqueCards(modelId).stream()
                 .filter(technique -> technique.techniqueId() == techniqueId)
@@ -239,10 +248,16 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Returns the nutrition fields displayed in comparison tables.
+     */
     public List<NutritionField> nutritionFields() {
         return NUTRITION_FIELDS;
     }
 
+    /**
+     * Loads completed experiment keys used by evaluation/export services.
+     */
     public List<CompletedExperimentKey> findCompletedExperimentKeys() {
         String sql = """
                 SELECT
@@ -268,6 +283,9 @@ public class ReviewDashboardService {
         ));
     }
 
+    /**
+     * Loads one experiment detail row with attached nutrition result values.
+     */
     public Optional<ExperimentDetail> findExperimentById(int experimentId) {
         String sql = experimentSelect("""
                 WHERE e.experiment_id = ?
@@ -278,6 +296,9 @@ public class ReviewDashboardService {
                 .findFirst();
     }
 
+    /**
+     * Loads human annotated ingredients for one transcript.
+     */
     public List<IngredientDetail> loadGroundTruthIngredients(int transcriptId) {
         String sql = """
                 SELECT
@@ -312,6 +333,9 @@ public class ReviewDashboardService {
         return jdbcTemplate.query(sql, (rs, rowNum) -> mapGroundTruthIngredient(rs), transcriptId);
     }
 
+    /**
+     * Loads AI extracted ingredients for one experiment.
+     */
     public List<IngredientDetail> loadAiIngredients(int experimentId) {
         String sql = """
                 SELECT
@@ -343,6 +367,9 @@ public class ReviewDashboardService {
         return jdbcTemplate.query(sql, (rs, rowNum) -> mapAiIngredient(rs), experimentId);
     }
 
+    /**
+     * Compares ground truth and AI ingredients into matched, missed, and extra rows.
+     */
     public List<IngredientComparisonRow> compareIngredients(
             List<IngredientDetail> groundTruth,
             List<IngredientDetail> aiIngredients
@@ -379,6 +406,9 @@ public class ReviewDashboardService {
         return rows;
     }
 
+    /**
+     * Totals nutrition values across a list of ingredients.
+     */
     public NutritionValues sumNutrition(List<IngredientDetail> ingredients) {
         NutritionValues total = NutritionValues.empty();
         for (IngredientDetail ingredient : ingredients) {
@@ -387,6 +417,9 @@ public class ReviewDashboardService {
         return total;
     }
 
+    /**
+     * Builds nutrition comparison rows for ground truth totals versus AI totals.
+     */
     public List<NutritionComparisonRow> compareNutrition(NutritionValues groundTruth, NutritionValues ai) {
         List<NutritionComparisonRow> rows = new ArrayList<>();
         for (NutritionField field : NUTRITION_FIELDS) {
@@ -410,6 +443,9 @@ public class ReviewDashboardService {
         return rows;
     }
 
+    /**
+     * Calculates ingredient detection, JSON, and hallucination metrics for one result page.
+     */
     public EvaluationMetrics calculateMetrics(
             List<IngredientComparisonRow> rows,
             List<IngredientDetail> aiIngredients,
@@ -441,6 +477,9 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Builds the performance page grouped by model and prompt technique.
+     */
     public PerformancePage loadPerformancePage() {
         String sql = """
                 SELECT
@@ -509,6 +548,9 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Loads the selected reel metadata used by the result page.
+     */
     private Optional<ReelDetail> loadReelDetail(int reelId) {
         String sql = """
                 SELECT
@@ -542,6 +584,9 @@ public class ReviewDashboardService {
         ), reelId).stream().findFirst();
     }
 
+    /**
+     * Finds the latest experiment row for one transcript/model/prompt condition.
+     */
     private Optional<ExperimentDetail> findLatestExperiment(int transcriptId, int modelId, int techniqueId) {
         String sql = experimentSelect("""
                 WHERE e.transcript_id = ?
@@ -556,6 +601,9 @@ public class ReviewDashboardService {
                 .findFirst();
     }
 
+    /**
+     * Keeps the shared experiment SELECT list in one place for detail queries.
+     */
     private String experimentSelect(String whereClause) {
         return """
                 SELECT
@@ -592,6 +640,9 @@ public class ReviewDashboardService {
                 """.formatted(whereClause);
     }
 
+    /**
+     * Loads ground truth reel metadata and ingredient count for one transcript.
+     */
     private GroundTruthInfo loadGroundTruthInfo(Integer transcriptId) {
         if (transcriptId == null) {
             return GroundTruthInfo.missing();
@@ -618,6 +669,9 @@ public class ReviewDashboardService {
         ), transcriptId).stream().findFirst().orElse(GroundTruthInfo.missing());
     }
 
+    /**
+     * Finds the best matching AI ingredient for one ground truth ingredient.
+     */
     private MatchResult findBestMatch(IngredientDetail gt, List<IngredientDetail> aiIngredients) {
         for (IngredientDetail ai : aiIngredients) {
             if (matchesExactly(gt.nameEn(), ai.nameEn()) || matchesExactly(gt.nameOriginal(), ai.nameOriginal())) {
@@ -632,12 +686,18 @@ public class ReviewDashboardService {
         return new MatchResult(null, "Missed by AI", "pending");
     }
 
+    /**
+     * Checks whether two ingredient names match after normalization.
+     */
     private boolean matchesExactly(String left, String right) {
         String normalizedLeft = normalizeIngredientName(left);
         String normalizedRight = normalizeIngredientName(right);
         return !normalizedLeft.isBlank() && normalizedLeft.equals(normalizedRight);
     }
 
+    /**
+     * Checks whether two ingredient names partially contain each other after normalization.
+     */
     private boolean matchesPartially(String left, String right) {
         String normalizedLeft = normalizeIngredientName(left);
         String normalizedRight = normalizeIngredientName(right);
@@ -647,10 +707,16 @@ public class ReviewDashboardService {
         return normalizedLeft.contains(normalizedRight) || normalizedRight.contains(normalizedLeft);
     }
 
+    /**
+     * Normalizes ingredient text for matching and export comparisons.
+     */
     private String normalizeIngredientName(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
 
+    /**
+     * Reads a transcript preview from disk for the result page.
+     */
     private String readTranscriptPreview(String filePath, String fileName) {
         if (filePath != null && !filePath.isBlank()) {
             try {
@@ -669,6 +735,9 @@ public class ReviewDashboardService {
                 + (fileName == null ? "Not available" : fileName);
     }
 
+    /**
+     * Removes transcript header metadata before preview/highlighting.
+     */
     private String cleanTranscript(String transcript) {
         int divider = transcript.indexOf("=====================================");
         if (divider < 0) {
@@ -677,6 +746,9 @@ public class ReviewDashboardService {
         return transcript.substring(divider + "=====================================".length()).trim();
     }
 
+    /**
+     * Splits transcript preview text into highlighted and normal display segments.
+     */
     private List<TranscriptSegment> highlightTranscript(String text) {
         List<TranscriptSegment> segments = new ArrayList<>();
         Matcher matcher = COOKING_TERM_PATTERN.matcher(text);
@@ -694,6 +766,9 @@ public class ReviewDashboardService {
         return segments.isEmpty() ? List.of(new TranscriptSegment(text, false)) : segments;
     }
 
+    /**
+     * Validates raw JSON when the stored json_valid flag is missing.
+     */
     private boolean isRawJsonValid(String rawJson) {
         if (rawJson == null || rawJson.isBlank()) {
             return false;
@@ -706,6 +781,9 @@ public class ReviewDashboardService {
         }
     }
 
+    /**
+     * Maps status count columns into one reusable value object.
+     */
     private StatusCount mapStatusCount(ResultSet rs) throws SQLException {
         return new StatusCount(
                 rs.getLong("pending_count"),
@@ -716,6 +794,9 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Maps a joined experiment/nutrition result row into the detail record.
+     */
     private ExperimentDetail mapExperiment(ResultSet rs) throws SQLException {
         return new ExperimentDetail(
                 getInteger(rs, "experiment_id"),
@@ -750,6 +831,9 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Maps one human annotated ingredient row.
+     */
     private IngredientDetail mapGroundTruthIngredient(ResultSet rs) throws SQLException {
         return new IngredientDetail(
                 getInteger(rs, "gt_ingredient_id"),
@@ -768,6 +852,9 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Maps one AI extracted ingredient row.
+     */
     private IngredientDetail mapAiIngredient(ResultSet rs) throws SQLException {
         return new IngredientDetail(
                 getInteger(rs, "ingredient_id"),
@@ -786,6 +873,9 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Maps nutrition columns into one reusable nutrition value object.
+     */
     private NutritionValues mapNutritionValues(ResultSet rs) throws SQLException {
         return new NutritionValues(
                 getDouble(rs, "calories"),
@@ -804,25 +894,40 @@ public class ReviewDashboardService {
         );
     }
 
+    /**
+     * Converts nullable SQL timestamps to LocalDateTime.
+     */
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
+    /**
+     * Reads a nullable integer from a JDBC result set.
+     */
     private Integer getInteger(ResultSet rs, String columnName) throws SQLException {
         int value = rs.getInt(columnName);
         return rs.wasNull() ? null : value;
     }
 
+    /**
+     * Reads a nullable long from a JDBC result set.
+     */
     private Long getLong(ResultSet rs, String columnName) throws SQLException {
         long value = rs.getLong(columnName);
         return rs.wasNull() ? null : value;
     }
 
+    /**
+     * Reads a nullable double from a JDBC result set.
+     */
     private Double getDouble(ResultSet rs, String columnName) throws SQLException {
         double value = rs.getDouble(columnName);
         return rs.wasNull() ? null : value;
     }
 
+    /**
+     * Reads a nullable boolean from JDBC values stored as booleans or numbers.
+     */
     private Boolean getBoolean(ResultSet rs, String columnName) throws SQLException {
         Object value = rs.getObject(columnName);
         if (value == null) {
@@ -837,6 +942,9 @@ public class ReviewDashboardService {
         return Boolean.valueOf(value.toString());
     }
 
+    /**
+     * Rounds display metrics to three decimal places.
+     */
     private double round(double value) {
         return Math.round(value * 1000.0) / 1000.0;
     }

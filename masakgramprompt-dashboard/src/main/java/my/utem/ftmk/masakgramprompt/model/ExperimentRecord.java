@@ -2,6 +2,9 @@ package my.utem.ftmk.masakgramprompt.model;
 
 import java.time.LocalDateTime;
 
+/**
+ * Represents an experiment row with joined model, prompt, and result summary fields.
+ */
 public class ExperimentRecord {
 
     private int experimentId;

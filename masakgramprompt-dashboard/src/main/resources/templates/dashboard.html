@@ -45,6 +45,7 @@
         <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
         <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
 
+        <!-- Top-level dataset and experiment counters. -->
         <section class="metrics-strip" aria-label="Dataset and experiment status">
             <article class="metric-segment dataset">
  
@@ -86,6 +87,7 @@
             </article>
         </section>
 
+        <!-- Legacy batch launcher kept for the main dashboard overview. -->
         <section id="experiments" class="panel">
             <div class="panel-header">
                 <div>
@@ -141,6 +143,7 @@
             </div>
         </section>
 
+        <!-- Processing-time comparison grouped by model and prompt technique. -->
         <section id="performance" class="panel">
             <div class="panel-header">
                 <div>
@@ -196,6 +199,7 @@
             </div>
         </section>
 
+        <!-- Dataset reel table with readiness status for audio, transcript, and ground truth. -->
         <section id="reels" class="panel">
             <div class="panel-header">
                 <div>

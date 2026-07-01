@@ -30,6 +30,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.springframework.core.io.ClassPathResource;
+
+/**
+ * Runs one LLM experiment, calls Ollama, and saves the parsed result to MySQL.
+ */
 @Service
 public class LlmExperimentRunnerService {
 
@@ -53,6 +57,9 @@ public class LlmExperimentRunnerService {
                 .connectTimeout(Duration.ofSeconds(20))
                 .build();
     }
+    /**
+     * Converts database file paths into paths that can be read from the project folder.
+     */
     private Path resolveProjectFile(String storedPath) {
         Path path = Path.of(storedPath);
 
@@ -63,11 +70,17 @@ public class LlmExperimentRunnerService {
         return Path.of("").toAbsolutePath().resolve(path).normalize();
     }
     
+    /**
+     * Runs a single experiment without reporting stage updates.
+     */
     public int run(int reelId, int modelId, int techniqueId) {
         return run(reelId, modelId, techniqueId, stage -> {
         });
     }
 
+    /**
+     * Runs a single experiment and reports stage text for progress UIs.
+     */
     public int run(int reelId, int modelId, int techniqueId, Consumer<String> stageListener) {
         activeRuns.incrementAndGet();
         try {
@@ -109,6 +122,9 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Starts one experiment on a background thread for the Single Run page.
+     */
     public synchronized boolean startSingleRun(int reelId, int modelId, int techniqueId) {
         if (singleRunStatus.isRunning()) {
             return false;
@@ -133,6 +149,9 @@ public class LlmExperimentRunnerService {
         return true;
     }
 
+    /**
+     * Returns a copy of the live single-run state for templates and JSON polling.
+     */
     public synchronized SingleRunStatus getSingleRunStatus() {
         SingleRunStatus copy = new SingleRunStatus();
         copy.setRunning(singleRunStatus.isRunning());
@@ -152,6 +171,9 @@ public class LlmExperimentRunnerService {
         return copy;
     }
 
+    /**
+     * Executes the background single run and updates completion or failure state.
+     */
     private void runSingleInBackground(int reelId, int modelId, int techniqueId) {
         try {
             run(reelId, modelId, techniqueId, this::updateSingleRunStage);
@@ -177,15 +199,24 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Updates the visible stage for the active single run.
+     */
     private synchronized void updateSingleRunStage(String stage) {
         singleRunStatus.setStage(stage);
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    /**
+     * Marks interrupted running experiments as failed after application startup.
+     */
     public void recoverInterruptedExperimentsOnStartup() {
         recoverInterruptedExperiments();
     }
 
+    /**
+     * Recovers database rows left as running after a crash or forced stop.
+     */
     public int recoverInterruptedExperiments() {
         if (activeRuns.get() > 0) {
             return 0;
@@ -208,11 +239,17 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Stops the single-run executor during application shutdown.
+     */
     @PreDestroy
     public void shutdownSingleRunExecutor() {
         singleRunExecutor.shutdown();
     }
 
+    /**
+     * Loads the transcript row needed for the selected reel.
+     */
     private TranscriptInput loadTranscript(int reelId) {
         return jdbcTemplate.query("""
                 SELECT transcript_id, file_path
@@ -227,6 +264,9 @@ public class LlmExperimentRunnerService {
         );
     }
 
+    /**
+     * Loads the Ollama model tag used in the chat request.
+     */
     private ModelInput loadModel(int modelId) {
         return jdbcTemplate.query("""
                 SELECT model_tag
@@ -238,6 +278,9 @@ public class LlmExperimentRunnerService {
                 .orElseThrow(() -> new IllegalStateException("Model not found: " + modelId));
     }
 
+    /**
+     * Loads the model display name used in progress messages.
+     */
     private String loadModelName(int modelId) {
         return jdbcTemplate.query("""
                 SELECT model_name
@@ -249,6 +292,9 @@ public class LlmExperimentRunnerService {
                 .orElse("Unknown model");
     }
 
+    /**
+     * Loads the prompt technique display name used in progress messages.
+     */
     private String loadTechniqueName(int techniqueId) {
         return jdbcTemplate.query("""
                 SELECT technique_name
@@ -260,6 +306,9 @@ public class LlmExperimentRunnerService {
                 .orElse("Unknown prompt");
     }
 
+    /**
+     * Loads the Instagram reel id shown in single-run progress.
+     */
     private String loadReelInstagramId(int reelId) {
         return jdbcTemplate.query("""
                 SELECT reel_id_instagram
@@ -271,6 +320,9 @@ public class LlmExperimentRunnerService {
                 .orElse("Reel " + reelId);
     }
 
+    /**
+     * Loads system and user prompt files for the selected prompt technique.
+     */
     private PromptInput loadPrompt(int techniqueId) {
         return jdbcTemplate.query("""
                 SELECT system_prompt_file, user_prompt_file
@@ -286,6 +338,9 @@ public class LlmExperimentRunnerService {
         );
     }
 
+    /**
+     * Reads a prompt file from src/main/resources/prompts at runtime.
+     */
     private String readPromptFile(String storedPath) {
         try {
             String fileName = Path.of(storedPath).getFileName().toString();
@@ -301,6 +356,9 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Reuses the existing experiment row for a condition, or creates one if missing.
+     */
     private int findOrCreateExperiment(int transcriptId, int modelId, int techniqueId) {
         return jdbcTemplate.query("""
                 SELECT experiment_id
@@ -317,6 +375,9 @@ public class LlmExperimentRunnerService {
                 .orElseGet(() -> createExperiment(transcriptId, modelId, techniqueId));
     }
 
+    /**
+     * Creates a pending experiment row before a result is generated.
+     */
     private int createExperiment(int transcriptId, int modelId, int techniqueId) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -337,6 +398,9 @@ public class LlmExperimentRunnerService {
         return key.intValue();
     }
 
+    /**
+     * Removes previous result rows so rerunning the same condition replaces the output.
+     */
     private void clearPreviousResults(int experimentId) {
         jdbcTemplate.update("""
                 DELETE ir
@@ -351,6 +415,9 @@ public class LlmExperimentRunnerService {
                 """, experimentId);
     }
 
+    /**
+     * Marks an experiment row as actively running.
+     */
     private void markExperimentRunning(int experimentId) {
         jdbcTemplate.update("""
                 UPDATE experiment
@@ -359,6 +426,9 @@ public class LlmExperimentRunnerService {
                 """, experimentId);
     }
 
+    /**
+     * Stores final experiment status and processing time.
+     */
     private void markExperimentFinished(int experimentId, String status, long processingTimeMs) {
         jdbcTemplate.update("""
                 UPDATE experiment
@@ -367,10 +437,16 @@ public class LlmExperimentRunnerService {
                 """, status, processingTimeMs, experimentId);
     }
 
+    /**
+     * Converts a nanoTime start point into elapsed milliseconds.
+     */
     private long elapsedMilliseconds(long startedAtNanos) {
         return Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis();
     }
 
+    /**
+     * Removes transcript header metadata before sending text to the prompt.
+     */
     private String cleanTranscript(String transcript) {
         int divider = transcript.indexOf("=====================================");
         if (divider < 0) {
@@ -379,6 +455,9 @@ public class LlmExperimentRunnerService {
         return transcript.substring(divider + "=====================================".length()).trim();
     }
 
+    /**
+     * Sends the prompt to Ollama and returns the model's JSON-like response content.
+     */
     private String callOllama(String modelTag, String systemPrompt, String userPrompt) throws IOException, InterruptedException {
         Map<String, Object> body = Map.of(
                 "model", modelTag,
@@ -410,6 +489,9 @@ public class LlmExperimentRunnerService {
         return extractJsonObject(content);
     }
 
+    /**
+     * Extracts the first JSON object when the model wraps it in extra text.
+     */
     private String extractJsonObject(String value) {
         int start = value.indexOf('{');
         int end = value.lastIndexOf('}');
@@ -419,6 +501,9 @@ public class LlmExperimentRunnerService {
         return value;
     }
 
+    /**
+     * Checks whether the raw model output can be parsed as JSON.
+     */
     private boolean isValidJson(String rawOutput) {
         try {
             objectMapper.readTree(rawOutput);
@@ -428,6 +513,9 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Saves top-level recipe and nutrition values from the model response.
+     */
     private int insertNutritionResult(int experimentId, String rawOutput, boolean jsonValid) throws IOException {
         JsonNode root = jsonValid ? objectMapper.readTree(rawOutput) : objectMapper.createObjectNode();
         JsonNode serving = root.path("amount_per_serving");
@@ -512,6 +600,9 @@ public class LlmExperimentRunnerService {
         return key.intValue();
     }
 
+    /**
+     * Saves ingredient rows when the model returned valid JSON.
+     */
     private void insertIngredientResults(int resultId, String rawOutput) throws IOException {
         JsonNode ingredients = objectMapper.readTree(rawOutput).path("ingredients");
         if (!ingredients.isArray()) {
@@ -568,6 +659,9 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Writes nullable integer JSON values into prepared statements.
+     */
     private void setInteger(PreparedStatement ps, int index, JsonNode node) throws java.sql.SQLException {
         if (node.isMissingNode() || node.isNull()) {
             ps.setObject(index, null);
@@ -576,6 +670,9 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Writes nullable floating-point JSON values into prepared statements.
+     */
     private void setFloat(PreparedStatement ps, int index, JsonNode node) throws java.sql.SQLException {
         Float value = nullableFloat(node);
         if (value == null) {
@@ -585,6 +682,9 @@ public class LlmExperimentRunnerService {
         }
     }
 
+    /**
+     * Converts a JSON number node to Float while preserving missing or null values.
+     */
     private Float nullableFloat(JsonNode node) {
         if (node == null || node.isMissingNode() || node.isNull() || !node.isNumber()) {
             return null;

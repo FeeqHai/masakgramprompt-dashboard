@@ -1,5 +1,8 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+/**
+ * Represents the saved nutrition_result summary for one experiment.
+ */
 public class NutritionResultRecord {
 
     private int resultId;

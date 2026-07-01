@@ -1,5 +1,8 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+/**
+ * Holds the top-level dataset and experiment counters for the main dashboard.
+ */
 public class DashboardSummary {
 
     private int reelCount;

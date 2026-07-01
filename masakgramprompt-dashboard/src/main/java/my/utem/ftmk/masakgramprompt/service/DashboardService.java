@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Provides database-backed data for the original dashboard and reel detail pages.
+ */
 @Service
 public class DashboardService {
 
@@ -57,6 +60,9 @@ public class DashboardService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * Builds the top dashboard counters from dataset and experiment tables.
+     */
     public DashboardSummary getSummary() {
         DashboardSummary summary = new DashboardSummary();
         summary.setReelCount(count("reel"));
@@ -71,6 +77,9 @@ public class DashboardService {
         return summary;
     }
 
+    /**
+     * Calculates processing-time statistics for completed model/prompt runs.
+     */
     public List<ProcessingTimeSummary> findProcessingTimeSummary() {
         String sql = """
                 SELECT
@@ -103,6 +112,9 @@ public class DashboardService {
         });
     }
 
+    /**
+     * Groups processing-time rows by model and fills missing prompt techniques with placeholders.
+     */
     public List<ModelProcessingSummary> findModelProcessingSummaries() {
         Map<String, ModelProcessingSummary> summariesByModel = new LinkedHashMap<>();
         Map<String, Map<String, ProcessingTimeSummary>> timingsByModel = new LinkedHashMap<>();
@@ -148,6 +160,9 @@ public class DashboardService {
         return new ArrayList<>(summariesByModel.values());
     }
 
+    /**
+     * Creates a placeholder timing row when a model has no completed run for a technique.
+     */
     private ProcessingTimeSummary emptyTechniqueSummary(ModelProcessingSummary modelSummary, String techniqueName) {
         ProcessingTimeSummary summary = new ProcessingTimeSummary();
         summary.setModelName(modelSummary.getModelName());
@@ -157,6 +172,9 @@ public class DashboardService {
         return summary;
     }
 
+    /**
+     * Loads all reels with readiness flags and experiment totals.
+     */
     public List<Reel> findAllReels() {
         String sql = """
                 SELECT
@@ -197,6 +215,9 @@ public class DashboardService {
         return jdbcTemplate.query(sql, reelRowMapper);
     }
 
+    /**
+     * Loads one reel and its readiness counters for the legacy reel detail page.
+     */
     public Optional<Reel> findReelById(int reelId) {
         String sql = """
                 SELECT
@@ -237,6 +258,9 @@ public class DashboardService {
         return jdbcTemplate.query(sql, reelRowMapper, reelId).stream().findFirst();
     }
 
+    /**
+     * Loads the audio metadata row for one reel when it exists.
+     */
     public Optional<AudioFileRecord> findAudioByReelId(int reelId) {
         String sql = """
                 SELECT
@@ -274,6 +298,9 @@ public class DashboardService {
         }, reelId).stream().findFirst();
     }
 
+    /**
+     * Loads the transcript metadata row for one reel when it exists.
+     */
     public Optional<TranscriptRecord> findTranscriptByReelId(int reelId) {
         String sql = """
                 SELECT
@@ -313,6 +340,9 @@ public class DashboardService {
         }, reelId).stream().findFirst();
     }
 
+    /**
+     * Loads all experiment rows connected to a reel transcript.
+     */
     public List<ExperimentRecord> findExperimentsByReelId(int reelId) {
         String sql = """
                 SELECT
@@ -372,6 +402,9 @@ public class DashboardService {
         }, reelId);
     }
 
+    /**
+     * Loads nutrition result summaries connected to a reel transcript.
+     */
     public List<NutritionResultRecord> findNutritionResultsByReelId(int reelId) {
         String sql = """
                 SELECT
@@ -425,6 +458,9 @@ public class DashboardService {
         }, reelId);
     }
 
+    /**
+     * Loads extracted ingredient rows connected to a reel transcript.
+     */
     public List<IngredientResultRecord> findIngredientResultsByReelId(int reelId) {
         String sql = """
                 SELECT
@@ -484,6 +520,9 @@ public class DashboardService {
         }, reelId);
     }
 
+    /**
+     * Loads model options for run forms and dropdowns.
+     */
     public List<LlmModelOption> findModelOptions() {
         return jdbcTemplate.query("""
                 SELECT model_id, model_name, model_tag
@@ -498,6 +537,9 @@ public class DashboardService {
         });
     }
 
+    /**
+     * Loads prompt technique options in the expected display order.
+     */
     public List<PromptTechniqueOption> findPromptTechniqueOptions() {
         return jdbcTemplate.query("""
                 SELECT technique_id, technique_name
@@ -511,11 +553,17 @@ public class DashboardService {
         });
     }
 
+    /**
+     * Counts all rows in a trusted table name used by dashboard totals.
+     */
     private int count(String tableName) {
         Integer value = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
         return value == null ? 0 : value;
     }
 
+    /**
+     * Counts experiment rows for one status value.
+     */
     private int countExperimentsByStatus(String status) {
         Integer value = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM experiment WHERE status = ?",
@@ -525,10 +573,16 @@ public class DashboardService {
         return value == null ? 0 : value;
     }
 
+    /**
+     * Converts nullable SQL timestamps to LocalDateTime.
+     */
     private java.time.LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
+    /**
+     * Converts JDBC boolean-like values to nullable booleans.
+     */
     private Boolean getBooleanOrNull(Object value) {
         if (value == null) {
             return null;
@@ -542,6 +596,9 @@ public class DashboardService {
         return Boolean.valueOf(value.toString());
     }
 
+    /**
+     * Converts JDBC numeric values to nullable floats.
+     */
     private Float getFloatOrNull(Object value) {
         if (value == null) {
             return null;
@@ -552,6 +609,9 @@ public class DashboardService {
         return Float.parseFloat(value.toString());
     }
 
+    /**
+     * Converts JDBC numeric values to nullable doubles.
+     */
     private Double getDoubleOrNull(Object value) {
         if (value == null) {
             return null;

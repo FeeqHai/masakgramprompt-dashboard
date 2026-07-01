@@ -9,6 +9,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * Builds CSV files for the export page and the per-result fact sheet download.
+ */
 @Service
 public class CsvExportService {
 
@@ -46,12 +49,18 @@ public class CsvExportService {
         this.evaluationService = evaluationService;
     }
 
+    /**
+     * Lists the CSV files the user can download from the Exports page.
+     */
     public List<ExportDefinition> exportDefinitions() {
         return definitions.values().stream()
                 .sorted((left, right) -> left.fileName().compareTo(right.fileName()))
                 .toList();
     }
 
+    /**
+     * Routes a requested CSV file name to the matching export builder.
+     */
     public CsvFile generateExport(String exportName) {
         return switch (exportName) {
             case "layer1a_exact_match.csv" -> csv(exportName, this::layer1aRows);
@@ -68,6 +77,9 @@ public class CsvExportService {
         };
     }
 
+    /**
+     * Creates a compact CSV fact sheet for one model, prompt technique, and reel.
+     */
     public CsvFile generateFactSheet(int modelId, int techniqueId, int reelId) {
         ReviewDashboardService.ResultPage page = reviewDashboardService.loadResultPage(modelId, techniqueId, reelId);
         List<List<Object>> rows = new ArrayList<>();
@@ -103,10 +115,16 @@ public class CsvExportService {
         return Map.entry(fileName, new ExportDefinition(fileName, title, description));
     }
 
+    /**
+     * Wraps row generation and CSV serialization for one export.
+     */
     private CsvFile csv(String exportName, Supplier<List<List<Object>>> supplier) {
         return new CsvFile(exportName, toCsv(supplier.get()));
     }
 
+    /**
+     * Exports ingredient-level exact match labels for ground truth versus AI output.
+     */
     private List<List<Object>> layer1aRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -132,6 +150,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports normalized ingredient names for later text-similarity analysis.
+     */
     private List<List<Object>> layer1bRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -154,6 +175,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports numeric quantity and estimated-weight differences per ingredient.
+     */
     private List<List<Object>> layer2aRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -181,6 +205,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports per-ingredient nutrition differences between matched rows.
+     */
     private List<List<Object>> layer2bRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -215,6 +242,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports recipe-level nutrition total differences.
+     */
     private List<List<Object>> layer2cRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -239,6 +269,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports whether each completed experiment produced valid JSON.
+     */
     private List<List<Object>> layer3aRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name", "json_valid"
@@ -255,6 +288,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports AI ingredients marked as extra compared with human ground truth.
+     */
     private List<List<Object>> layer3bRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -280,6 +316,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports precision, recall, F1, and hallucination counts for each experiment.
+     */
     private List<List<Object>> layer3cRows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -306,6 +345,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Builds a reviewer-friendly CSV with blank columns for human scoring.
+     */
     private List<List<Object>> layer4Rows() {
         List<List<Object>> rows = withHeader(
                 "experiment_id", "transcript_id", "model_name", "technique_name",
@@ -328,6 +370,9 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Exports aggregate condition scores grouped by model and prompt technique.
+     */
     private List<List<Object>> layer5Rows() {
         List<List<Object>> rows = withHeader(
                 "model_name", "technique_name", "completed_experiments",
@@ -350,16 +395,25 @@ public class CsvExportService {
         return rows;
     }
 
+    /**
+     * Creates the first row of a CSV with the provided column names.
+     */
     private List<List<Object>> withHeader(String... headers) {
         List<List<Object>> rows = new ArrayList<>();
         rows.add(row((Object[]) headers));
         return rows;
     }
 
+    /**
+     * Convenience helper for building one CSV row.
+     */
     private List<Object> row(Object... values) {
         return new ArrayList<>(Arrays.asList(values));
     }
 
+    /**
+     * Converts rows into CSV text with Windows-friendly line endings.
+     */
     private String toCsv(List<List<Object>> rows) {
         StringBuilder builder = new StringBuilder();
         for (List<Object> row : rows) {
@@ -374,6 +428,9 @@ public class CsvExportService {
         return builder.toString();
     }
 
+    /**
+     * Escapes commas, quotes, and line breaks according to CSV rules.
+     */
     private String escape(Object value) {
         if (value == null) {
             return "";
@@ -385,6 +442,9 @@ public class CsvExportService {
         return text;
     }
 
+    /**
+     * Normalizes ingredient names before comparison-oriented exports.
+     */
     private String normalize(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
@@ -402,6 +462,9 @@ public class CsvExportService {
         return ingredient == null ? ReviewDashboardService.NutritionValues.empty() : ingredient.nutrition();
     }
 
+    /**
+     * Returns an absolute numeric difference, preserving null when either value is missing.
+     */
     private Double absoluteDifference(Double left, Double right) {
         return left == null || right == null ? null : Math.abs(right - left);
     }

@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Calculates accuracy metrics and aggregate rankings for completed experiments.
+ */
 @Service
 public class EvaluationService {
 
@@ -63,6 +66,9 @@ public class EvaluationService {
         return evaluations;
     }
 
+    /**
+     * Groups completed experiment evaluations by model and prompt technique.
+     */
     public List<EvaluationAggregate> aggregateByModelTechnique() {
         Map<String, AggregateAccumulator> accumulators = new LinkedHashMap<>();
         for (ExperimentEvaluation evaluation : completedExperimentEvaluations()) {
@@ -90,6 +96,9 @@ public class EvaluationService {
         return loadEvaluationDashboard(null, "ingredient");
     }
 
+    /**
+     * Builds the evaluation dashboard for the selected model and metric type.
+     */
     public EvaluationDashboardPage loadEvaluationDashboard(Integer modelId, String type) {
         List<EvaluationAggregate> aggregates = aggregateByModelTechnique();
         String selectedType = normalizeEvaluationType(type);
@@ -107,12 +116,18 @@ public class EvaluationService {
         );
     }
 
+    /**
+     * Loads model options used by the evaluation filter dropdown.
+     */
     private List<ModelOption> modelOptions() {
         return reviewDashboardService.findModelCards().stream()
                 .map(model -> new ModelOption(model.modelId(), model.modelName()))
                 .toList();
     }
 
+    /**
+     * Keeps unsupported tab names from breaking the evaluation page.
+     */
     private String normalizeEvaluationType(String type) {
         if (type == null || type.isBlank()) {
             return "ingredient";
@@ -123,6 +138,9 @@ public class EvaluationService {
         };
     }
 
+    /**
+     * Chooses the table ordering for each evaluation tab.
+     */
     private Comparator<EvaluationAggregate> rowComparator(String type) {
         if ("ranking".equals(type)) {
             return Comparator
@@ -135,6 +153,9 @@ public class EvaluationService {
                 .thenComparing(EvaluationAggregate::techniqueId);
     }
 
+    /**
+     * Returns all aggregate rows sorted by best overall condition.
+     */
     public List<EvaluationAggregate> rankedAggregates() {
         return aggregateByModelTechnique().stream()
                 .sorted(Comparator
@@ -144,6 +165,9 @@ public class EvaluationService {
                 .toList();
     }
 
+    /**
+     * Builds the top-level summary cards from all aggregate rows.
+     */
     private EvaluationSummary buildSummary(List<EvaluationAggregate> aggregates) {
         int totalCompleted = aggregates.stream()
                 .mapToInt(EvaluationAggregate::completedExperiments)
@@ -174,6 +198,9 @@ public class EvaluationService {
         );
     }
 
+    /**
+     * Formats the model and technique label used in summary cards.
+     */
     private String label(Optional<EvaluationAggregate> aggregate) {
         return aggregate
                 .map(item -> item.modelName() + " - " + item.techniqueName())
@@ -214,6 +241,9 @@ public class EvaluationService {
             this.techniqueName = techniqueName;
         }
 
+        /**
+         * Adds one experiment's metrics into this aggregate accumulator.
+         */
         private void add(ExperimentEvaluation evaluation) {
             ReviewDashboardService.EvaluationMetrics metrics = evaluation.metrics();
             completedExperiments++;
@@ -231,6 +261,9 @@ public class EvaluationService {
             addNutritionError(evaluation, "total_carbohydrate_g");
         }
 
+        /**
+         * Adds one nutrition absolute-error value when the metric exists.
+         */
         private void addNutritionError(ExperimentEvaluation evaluation, String nutritionKey) {
             Double error = evaluation.absoluteNutritionError(nutritionKey);
             if (error == null) {
@@ -258,6 +291,9 @@ public class EvaluationService {
             }
         }
 
+        /**
+         * Converts totals and counters into a dashboard-ready aggregate row.
+         */
         private EvaluationAggregate toAggregate() {
             return new EvaluationAggregate(
                     modelId,
@@ -278,10 +314,16 @@ public class EvaluationService {
             );
         }
 
+        /**
+         * Calculates an average while avoiding divide-by-zero.
+         */
         private double average(double total, int count) {
             return count == 0 ? 0.0 : round(total / count);
         }
 
+        /**
+         * Rounds metric values to three decimal places for display.
+         */
         private double round(double value) {
             return Math.round(value * 1000.0) / 1000.0;
         }
@@ -299,6 +341,9 @@ public class EvaluationService {
             List<ReviewDashboardService.NutritionComparisonRow> nutritionRows,
             ReviewDashboardService.EvaluationMetrics metrics
     ) {
+        /**
+         * Finds the nutrition absolute error for a named nutrition field.
+         */
         public Double absoluteNutritionError(String nutritionKey) {
             return nutritionRows.stream()
                     .filter(row -> row.key().equals(nutritionKey))
@@ -326,10 +371,16 @@ public class EvaluationService {
             int hallucinationCount,
             double hallucinationRate
     ) {
+        /**
+         * Returns a readable condition label for model plus prompt technique.
+         */
         public String conditionLabel() {
             return modelName + " - " + techniqueName;
         }
 
+        /**
+         * Chooses the badge style for JSON validity percentage.
+         */
         public String jsonValidityCssClass() {
             if (jsonValidityRate >= 0.9) {
                 return "badge ok";
@@ -348,6 +399,9 @@ public class EvaluationService {
             String selectedType,
             List<EvaluationAggregate> rows
     ) {
+        /**
+         * Lets Thymeleaf check whether the filtered dashboard has any rows.
+         */
         public boolean hasRows() {
             return !rows.isEmpty();
         }
@@ -376,17 +430,26 @@ public class EvaluationService {
             String modelName,
             List<EvaluationAggregate> techniques
     ) {
+        /**
+         * Finds the best F1 row inside one model group.
+         */
         public EvaluationAggregate bestF1Technique() {
             return techniques.stream()
                     .max(Comparator.comparing(EvaluationAggregate::averageF1))
                     .orElse(null);
         }
 
+        /**
+         * Returns the prompt technique name for the model's best F1 row.
+         */
         public String bestTechniqueName() {
             EvaluationAggregate best = bestF1Technique();
             return best == null ? "Not available" : best.techniqueName();
         }
 
+        /**
+         * Returns the best F1 score for the model summary line.
+         */
         public double bestF1() {
             EvaluationAggregate best = bestF1Technique();
             return best == null ? 0.0 : best.averageF1();

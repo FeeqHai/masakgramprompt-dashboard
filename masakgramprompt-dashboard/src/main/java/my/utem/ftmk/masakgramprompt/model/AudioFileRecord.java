@@ -2,6 +2,9 @@ package my.utem.ftmk.masakgramprompt.model;
 
 import java.time.LocalDateTime;
 
+/**
+ * Represents one audio_file row linked to a reel.
+ */
 public class AudioFileRecord {
 
     private int audioId;
