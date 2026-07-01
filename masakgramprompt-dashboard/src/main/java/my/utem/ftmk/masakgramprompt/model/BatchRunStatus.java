@@ -14,6 +14,7 @@ public class BatchRunStatus {
     private String currentReelInstagramId;
     private String modelName;
     private String techniqueName;
+    private String currentStage;
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
 
@@ -100,6 +101,14 @@ public class BatchRunStatus {
 
     public void setTechniqueName(String techniqueName) {
         this.techniqueName = techniqueName;
+    }
+
+    public String getCurrentStage() {
+        return currentStage;
+    }
+
+    public void setCurrentStage(String currentStage) {
+        this.currentStage = currentStage;
     }
 
     public LocalDateTime getStartedAt() {
