@@ -160,8 +160,30 @@ public class DashboardController {
         model.addAttribute("techniqueStatusRows", selectedModelId == 0
                 ? List.of()
                 : reviewDashboardService.findTechniqueCards(selectedModelId));
+        model.addAttribute("reels", dashboardService.findAllReels());
+        model.addAttribute("promptTechniques", dashboardService.findPromptTechniqueOptions());
         model.addAttribute("batchStatus", batchExperimentService.getStatus());
         return "batch";
+    }
+
+    @PostMapping("/batch/single/run")
+    public String runSingleFromBatchPage(
+            @RequestParam int reelId,
+            @RequestParam int modelId,
+            @RequestParam int techniqueId,
+            RedirectAttributes redirectAttributes
+    ) {
+        try {
+            int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
+            redirectAttributes.addFlashAttribute(
+                    "successMessage",
+                    "Single experiment " + experimentId + " completed. The result is shown below."
+            );
+            return "redirect:/reels/" + reelId + "#experiments";
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Single experiment failed: " + ex.getMessage());
+            return "redirect:/batch?modelId=" + modelId;
+        }
     }
 
     @PostMapping("/batch/run")
