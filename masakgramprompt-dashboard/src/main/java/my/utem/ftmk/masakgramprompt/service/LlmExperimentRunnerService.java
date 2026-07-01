@@ -21,6 +21,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.springframework.core.io.ClassPathResource;
 @Service
 public class LlmExperimentRunnerService {
@@ -53,7 +54,13 @@ public class LlmExperimentRunnerService {
     }
     
     public int run(int reelId, int modelId, int techniqueId) {
+        return run(reelId, modelId, techniqueId, stage -> {
+        });
+    }
+
+    public int run(int reelId, int modelId, int techniqueId, Consumer<String> stageListener) {
         long startedAtNanos = System.nanoTime();
+        stageListener.accept("Preparing request");
         TranscriptInput transcript = loadTranscript(reelId);
         ModelInput model = loadModel(modelId);
         PromptInput prompt = loadPrompt(techniqueId);
@@ -63,12 +70,17 @@ public class LlmExperimentRunnerService {
         markExperimentRunning(experimentId);
 
         try {
+            stageListener.accept("Reading transcript file");
         	Path transcriptPath = resolveProjectFile(transcript.filePath());
         	String transcriptText = cleanTranscript(Files.readString(transcriptPath, StandardCharsets.UTF_8));
+            stageListener.accept("Building prompt");
             String userPrompt = prompt.userPrompt().replace("{{TRANSCRIPT}}", transcriptText);
+            stageListener.accept("Waiting for Ollama response");
             String rawOutput = callOllama(model.modelTag(), prompt.systemPrompt(), userPrompt);
+            stageListener.accept("Parsing JSON output");
             boolean jsonValid = isValidJson(rawOutput);
 
+            stageListener.accept("Saving result to database");
             int resultId = insertNutritionResult(experimentId, rawOutput, jsonValid);
             if (jsonValid) {
                 insertIngredientResults(resultId, rawOutput);

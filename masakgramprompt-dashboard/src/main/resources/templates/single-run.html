@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Run Experiment - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=13)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Single Run</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a href="/models">Models</a>
+            <a class="active" href="/single-run">Single Run</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <h1>Single Run Experiment</h1>
+                <p>Pick one model, one prompt technique, and one reel to run or inspect.</p>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
+        <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Filter Reels</h2>
+                    <p>Change model and prompt to see which reels already have results.</p>
+                </div>
+                <span class="badge neutral">
+                    <span th:text="${untestedCount}">0</span> untested
+                </span>
+            </div>
+
+            <form class="single-run-filter-form" method="get" th:action="@{/single-run}">
+                <label>
+                    <span>Model</span>
+                    <select name="modelId" th:disabled="${#lists.isEmpty(models)}">
+                        <option th:if="${#lists.isEmpty(models)}" value="">No models available</option>
+                        <option th:each="model : ${models}"
+                                th:value="${model.modelId}"
+                                th:selected="${model.modelId == selectedModelId}"
+                                th:text="${model.modelName + ' (' + model.modelTag + ')'}">Model</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>Prompt Technique</span>
+                    <select name="techniqueId" th:disabled="${#lists.isEmpty(techniques)}">
+                        <option th:if="${#lists.isEmpty(techniques)}" value="">No prompt techniques available</option>
+                        <option th:each="technique : ${techniques}"
+                                th:value="${technique.techniqueId}"
+                                th:selected="${technique.techniqueId == selectedTechniqueId}"
+                                th:text="${technique.techniqueName}">structured-output</option>
+                    </select>
+                </label>
+
+                <button type="submit" th:disabled="${#lists.isEmpty(models) or #lists.isEmpty(techniques)}">
+                    Apply Filter
+                </button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Run Selected Reel</h2>
+                    <p th:text="${selectedModelName + ' - ' + selectedTechniqueName}">Selected condition</p>
+                </div>
+                <span th:class="${batchStatus.running} ? 'badge pending' : 'badge neutral'"
+                      th:text="${batchStatus.running} ? 'Batch running' : 'Ready'">Ready</span>
+            </div>
+
+            <form class="single-run-form single-run-submit-form"
+                  method="post"
+                  th:action="@{/single-run/run}"
+                  th:attr="data-model-name=${selectedModelName},data-technique-name=${selectedTechniqueName},data-api-action=@{/single-run/run-json}">
+                <input type="hidden" name="modelId" th:value="${selectedModelId}">
+                <input type="hidden" name="techniqueId" th:value="${selectedTechniqueId}">
+
+                <label>
+                    <span>Reel</span>
+                    <select name="reelId" required th:disabled="${#lists.isEmpty(reels)}">
+                        <option th:if="${#lists.isEmpty(reels)}" value="">No reels available</option>
+                        <option th:each="reel : ${reels}"
+                                th:value="${reel.reelId}"
+                                th:disabled="${!reel.canRunExperiment()}"
+                                th:text="${'Reel ' + reel.reelId + ' - ' + (reel.instagramReelId == null ? 'No Instagram ID' : reel.instagramReelId) + ' - ' + reel.runOptionLabel()}">
+                            Reel
+                        </option>
+                    </select>
+                </label>
+
+                <button class="single-run-submit-button"
+                        type="submit"
+                        th:disabled="${batchStatus.running or runnableCount == 0 or selectedModelId == 0 or selectedTechniqueId == 0}">
+                    Run Single Experiment
+                </button>
+            </form>
+
+            <div id="singleExperimentProgress" class="single-experiment-progress" hidden>
+                <div class="batch-progress-header">
+                    <span class="badge pending">Running</span>
+                    <strong>Single experiment is processing</strong>
+                    <span>Elapsed: <strong id="singleExperimentElapsed">0s</strong></span>
+                </div>
+                <progress aria-label="Single experiment progress"></progress>
+                <div class="batch-progress-details">
+                    <span>Model: <strong id="singleExperimentModelName">-</strong></span>
+                    <span>Prompt: <strong id="singleExperimentTechniqueName">-</strong></span>
+                    <span>Stage: <strong id="singleExperimentStage">Preparing request</strong></span>
+                </div>
+                <p>
+                    Ollama is generating the nutrition JSON. After it finishes, this page opens the existing View Result screen.
+                </p>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Reels Detail</h2>
+                    <p>Result status for the selected model and prompt technique.</p>
+                </div>
+                <span class="badge neutral">
+                    <span th:text="${#lists.size(reels)}">0</span> reels
+                </span>
+            </div>
+
+            <div th:if="${#lists.isEmpty(reels)}" class="empty-state">
+                No reels were found for this selection.
+            </div>
+
+            <div th:if="${!#lists.isEmpty(reels)}" class="table-wrap">
+                <table class="review-table">
+                    <thead>
+                    <tr>
+                        <th>Reel / Transcript</th>
+                        <th>Reel Info</th>
+                        <th>Transcript</th>
+                        <th>Ground Truth</th>
+                        <th>Result Status</th>
+                        <th>Action</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="reel : ${reels}">
+                        <td>
+                            <strong th:text="${'Reel ' + reel.reelId}">Reel 1</strong>
+                            <span class="muted"
+                                  th:text="${reel.transcriptId == null ? 'Transcript missing' : 'Transcript ' + reel.transcriptId}">
+                                Transcript
+                            </span>
+                        </td>
+                        <td>
+                            <a th:href="${reel.reelUrl}" target="_blank" th:text="${reel.instagramReelId}">Instagram ID</a>
+                            <span class="muted" th:text="${'@' + reel.influencerAccount}">@account</span>
+                        </td>
+                        <td>
+                            <span th:class="${reel.transcriptId == null ? 'badge missing' : 'badge ok'}"
+                                  th:text="${reel.transcriptStatusLabel()}">Available</span>
+                        </td>
+                        <td>
+                            <span th:class="${reel.groundTruthAvailable ? 'badge ok' : 'badge pending'}"
+                                  th:text="${reel.groundTruthAvailable ? 'Ready' : 'Missing'}">Ready</span>
+                            <span class="muted"
+                                  th:text="${reel.groundTruthIngredientCount + ' ingredients'}">0 ingredients</span>
+                        </td>
+                        <td>
+                            <span th:class="${reel.resultId != null ? 'badge ok' : (reel.running() ? 'badge pending' : 'badge missing')}"
+                                  th:text="${reel.resultStatusLabel()}">No result</span>
+                            <span class="muted"
+                                  th:if="${reel.jsonValid != null}"
+                                  th:text="${reel.jsonValid ? 'Valid JSON' : 'Invalid JSON'}">JSON</span>
+                        </td>
+                        <td>
+                            <a th:if="${reel.resultId != null}"
+                               class="small-button"
+                               th:href="@{/models/{modelId}/techniques/{techniqueId}/reels/{reelId}/result(modelId=${selectedModelId},techniqueId=${selectedTechniqueId},reelId=${reel.reelId})}">
+                                View Result
+                            </a>
+                            <span th:if="${reel.running()}" class="badge pending">
+                                Running
+                            </span>
+                            <form th:if="${reel.resultId == null && reel.canRunExperiment()}"
+                                  class="inline-run-form single-run-submit-form"
+                                  method="post"
+                                  th:action="@{/single-run/run}"
+                                  th:attr="data-model-name=${selectedModelName},data-technique-name=${selectedTechniqueName},data-api-action=@{/single-run/run-json}">
+                                <input type="hidden" name="reelId" th:value="${reel.reelId}">
+                                <input type="hidden" name="modelId" th:value="${selectedModelId}">
+                                <input type="hidden" name="techniqueId" th:value="${selectedTechniqueId}">
+                                <button class="small-button single-run-submit-button"
+                                        type="submit"
+                                        th:disabled="${batchStatus.running}">
+                                    Run Experiment
+                                </button>
+                            </form>
+                            <span th:if="${reel.resultId == null && reel.transcriptId == null}" class="badge missing">
+                                No transcript
+                            </span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    const singleRunForms = document.querySelectorAll(".single-run-submit-form");
+    const singleExperimentProgress = document.getElementById("singleExperimentProgress");
+    const singleExperimentElapsed = document.getElementById("singleExperimentElapsed");
+    const singleExperimentModelName = document.getElementById("singleExperimentModelName");
+    const singleExperimentTechniqueName = document.getElementById("singleExperimentTechniqueName");
+    const singleExperimentStage = document.getElementById("singleExperimentStage");
+    const singleRunButtons = document.querySelectorAll(".single-run-submit-button");
+    let singleRunTimer = null;
+
+    function showSingleRunError(message) {
+        singleExperimentStage.textContent = message || "Single experiment failed";
+        singleRunButtons.forEach(function (button) {
+            button.disabled = false;
+        });
+    }
+
+    singleRunForms.forEach(function (form) {
+        form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+            const startedAt = Date.now();
+            const stages = [
+                "Preparing request",
+                "Reading transcript file",
+                "Building prompt",
+                "Waiting for Ollama response",
+                "Parsing JSON output",
+                "Saving result to database"
+            ];
+
+            singleExperimentProgress.hidden = false;
+            singleExperimentModelName.textContent = form.dataset.modelName || "-";
+            singleExperimentTechniqueName.textContent = form.dataset.techniqueName || "-";
+            singleExperimentStage.textContent = stages[0];
+            singleRunButtons.forEach(function (button) {
+                button.disabled = true;
+            });
+            singleExperimentProgress.scrollIntoView({ behavior: "smooth", block: "center" });
+
+            if (singleRunTimer !== null) {
+                window.clearInterval(singleRunTimer);
+            }
+            singleRunTimer = window.setInterval(function () {
+                const seconds = Math.floor((Date.now() - startedAt) / 1000);
+                const stageIndex = Math.min(stages.length - 1, Math.floor(seconds / 8));
+                singleExperimentElapsed.textContent = seconds + "s";
+                singleExperimentStage.textContent = stages[stageIndex];
+            }, 1000);
+
+            try {
+                const response = await fetch(form.dataset.apiAction, {
+                    method: "POST",
+                    body: new FormData(form)
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    showSingleRunError(result.message);
+                    return;
+                }
+
+                singleExperimentStage.textContent = "Opening result page";
+                window.location.href = result.redirectUrl;
+            } catch (error) {
+                showSingleRunError("Could not finish the single run request");
+            }
+        });
+    });
+</script>
+</body>
+</html>

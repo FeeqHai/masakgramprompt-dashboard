@@ -61,6 +61,7 @@ public class BatchExperimentService {
         status.setCurrentReelInstagramId(null);
         status.setModelName(loadModelName(modelId));
         status.setTechniqueName(loadTechniqueNames(techniqueIds));
+        status.setStage("Preparing request");
         status.setStartedAt(LocalDateTime.now());
         status.setFinishedAt(null);
 
@@ -80,6 +81,7 @@ public class BatchExperimentService {
         copy.setCurrentReelInstagramId(status.getCurrentReelInstagramId());
         copy.setModelName(status.getModelName());
         copy.setTechniqueName(status.getTechniqueName());
+        copy.setStage(status.getStage());
         copy.setStartedAt(status.getStartedAt());
         copy.setFinishedAt(status.getFinishedAt());
         return copy;
@@ -88,21 +90,25 @@ public class BatchExperimentService {
     private void runBatch(List<ReelInput> reels, int modelId, List<Integer> techniqueIds) {
         try {
             for (Integer techniqueId : techniqueIds) {
+                String currentTechniqueName = loadTechniqueName(techniqueId);
                 for (ReelInput reel : reels) {
                     synchronized (this) {
                         status.setCurrentReelId(reel.reelId());
                         status.setCurrentReelInstagramId(reel.instagramId());
+                        status.setTechniqueName(currentTechniqueName);
+                        status.setStage("Preparing request");
                     }
 
                     long runStartedAtNanos = System.nanoTime();
                     try {
-                        experimentRunnerService.run(reel.reelId(), modelId, techniqueId);
+                        experimentRunnerService.run(reel.reelId(), modelId, techniqueId, this::updateStage);
                         synchronized (this) {
                             status.setCompletedRuns(status.getCompletedRuns() + 1);
                         }
                     } catch (Exception ex) {
                         synchronized (this) {
                             status.setFailedRuns(status.getFailedRuns() + 1);
+                            status.setStage("Run failed");
                         }
                         System.err.printf(
                                 "Batch run failed for Reel %d and technique %d: %s%n",
@@ -126,9 +132,14 @@ public class BatchExperimentService {
                 status.setRunning(false);
                 status.setCurrentReelId(null);
                 status.setCurrentReelInstagramId(null);
+                status.setStage("Completed");
                 status.setFinishedAt(LocalDateTime.now());
             }
         }
+    }
+
+    private synchronized void updateStage(String stage) {
+        status.setStage(stage);
     }
 
     private List<ReelInput> loadReelsWithTranscript() {

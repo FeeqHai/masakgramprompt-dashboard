@@ -1,5 +1,6 @@
 package my.utem.ftmk.masakgramprompt.model;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 public class BatchRunStatus {
@@ -14,6 +15,7 @@ public class BatchRunStatus {
     private String currentReelInstagramId;
     private String modelName;
     private String techniqueName;
+    private String stage;
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
 
@@ -102,6 +104,14 @@ public class BatchRunStatus {
         this.techniqueName = techniqueName;
     }
 
+    public String getStage() {
+        return stage;
+    }
+
+    public void setStage(String stage) {
+        this.stage = stage;
+    }
+
     public LocalDateTime getStartedAt() {
         return startedAt;
     }
@@ -116,5 +126,13 @@ public class BatchRunStatus {
 
     public void setFinishedAt(LocalDateTime finishedAt) {
         this.finishedAt = finishedAt;
+    }
+
+    public long getElapsedSeconds() {
+        if (startedAt == null) {
+            return 0;
+        }
+        LocalDateTime end = finishedAt == null ? LocalDateTime.now() : finishedAt;
+        return Math.max(0, Duration.between(startedAt, end).toSeconds());
     }
 }

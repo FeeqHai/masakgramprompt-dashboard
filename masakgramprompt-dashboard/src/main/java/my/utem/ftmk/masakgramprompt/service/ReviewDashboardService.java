@@ -891,6 +891,21 @@ public class ReviewDashboardService {
             }
             return experimentStatus == null ? "No result" : experimentStatus;
         }
+
+        public boolean running() {
+            return "running".equalsIgnoreCase(experimentStatus);
+        }
+
+        public boolean canRunExperiment() {
+            return transcriptId != null && !running();
+        }
+
+        public String runOptionLabel() {
+            if (running()) {
+                return "running";
+            }
+            return resultId == null ? "not tested" : "result available";
+        }
     }
 
     public record ReelDetail(

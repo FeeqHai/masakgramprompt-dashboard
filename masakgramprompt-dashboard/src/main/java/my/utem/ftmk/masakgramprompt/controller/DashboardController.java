@@ -152,16 +152,58 @@ public class DashboardController {
             Model model
     ) {
         var models = reviewDashboardService.findModelCards();
+        var availableReels = dashboardService.findAllReels().stream()
+                .filter(reel -> reel.isHasTranscript())
+                .toList();
         int selectedModelId = modelId == null && !models.isEmpty() ? models.get(0).modelId() : modelId == null ? 0 : modelId;
 
         model.addAttribute("activePage", "batch");
         model.addAttribute("models", models);
+        model.addAttribute("availableReels", availableReels);
         model.addAttribute("selectedModelId", selectedModelId);
         model.addAttribute("techniqueStatusRows", selectedModelId == 0
                 ? List.of()
                 : reviewDashboardService.findTechniqueCards(selectedModelId));
         model.addAttribute("batchStatus", batchExperimentService.getStatus());
         return "batch";
+    }
+
+    @GetMapping("/single-run")
+    public String singleRun(
+            @RequestParam(name = "modelId", required = false) Integer modelId,
+            @RequestParam(name = "techniqueId", required = false) Integer techniqueId,
+            Model model
+    ) {
+        var models = reviewDashboardService.findModelCards();
+        int selectedModelId = modelId == null && !models.isEmpty() ? models.get(0).modelId() : modelId == null ? 0 : modelId;
+        List<ReviewDashboardService.TechniqueCard> techniques = selectedModelId == 0
+                ? List.of()
+                : reviewDashboardService.findTechniqueCards(selectedModelId);
+        int selectedTechniqueId = techniqueId == null
+                ? defaultTechniqueId(techniques)
+                : techniqueId;
+        List<ReviewDashboardService.ReelReviewRow> reels = selectedModelId == 0 || selectedTechniqueId == 0
+                ? List.of()
+                : reviewDashboardService.findReelRows(selectedModelId, selectedTechniqueId);
+        long untestedCount = reels.stream()
+                .filter(reel -> reel.transcriptId() != null && reel.resultId() == null)
+                .count();
+        long runnableCount = reels.stream()
+                .filter(ReviewDashboardService.ReelReviewRow::canRunExperiment)
+                .count();
+
+        model.addAttribute("activePage", "single-run");
+        model.addAttribute("models", models);
+        model.addAttribute("techniques", techniques);
+        model.addAttribute("selectedModelId", selectedModelId);
+        model.addAttribute("selectedTechniqueId", selectedTechniqueId);
+        model.addAttribute("selectedModelName", selectedModelName(models, selectedModelId));
+        model.addAttribute("selectedTechniqueName", selectedTechniqueName(techniques, selectedTechniqueId));
+        model.addAttribute("reels", reels);
+        model.addAttribute("untestedCount", untestedCount);
+        model.addAttribute("runnableCount", runnableCount);
+        model.addAttribute("batchStatus", batchExperimentService.getStatus());
+        return "single-run";
     }
 
     @PostMapping("/batch/run")
@@ -184,6 +226,49 @@ public class DashboardController {
             redirectAttributes.addFlashAttribute("errorMessage", "Batch could not start: " + ex.getMessage());
         }
         return "redirect:/batch?modelId=" + modelId;
+    }
+
+    @PostMapping({"/batch/run-single", "/single-run/run"})
+    public String runSingleFromBatchPage(
+            @RequestParam int reelId,
+            @RequestParam int modelId,
+            @RequestParam int techniqueId,
+            RedirectAttributes redirectAttributes
+    ) {
+        try {
+            int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
+            redirectAttributes.addFlashAttribute(
+                    "successMessage",
+                    "Single experiment " + experimentId + " completed."
+            );
+            return "redirect:/models/" + modelId + "/techniques/" + techniqueId + "/reels/" + reelId + "/result";
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Single experiment failed: " + ex.getMessage());
+            return "redirect:/single-run?modelId=" + modelId + "&techniqueId=" + techniqueId;
+        }
+    }
+
+    @PostMapping("/single-run/run-json")
+    public ResponseEntity<SingleRunResponse> runSingleJson(
+            @RequestParam int reelId,
+            @RequestParam int modelId,
+            @RequestParam int techniqueId
+    ) {
+        try {
+            int experimentId = llmExperimentRunnerService.run(reelId, modelId, techniqueId);
+            return ResponseEntity.ok(new SingleRunResponse(
+                    true,
+                    "/models/" + modelId + "/techniques/" + techniqueId + "/reels/" + reelId + "/result",
+                    "Single experiment " + experimentId + " completed."
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(new SingleRunResponse(false, null, "Single experiment failed: " + ex.getMessage()));
+        }
+    }
+
+    public record SingleRunResponse(boolean success, String redirectUrl, String message) {
     }
 
     @GetMapping("/batch/status")
@@ -347,5 +432,35 @@ public class DashboardController {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    private int defaultTechniqueId(List<ReviewDashboardService.TechniqueCard> techniques) {
+        if (techniques.isEmpty()) {
+            return 0;
+        }
+        return techniques.stream()
+                .filter(technique -> "structured-output".equals(technique.techniqueName()))
+                .findFirst()
+                .orElseGet(() -> techniques.get(0))
+                .techniqueId();
+    }
+
+    private String selectedModelName(List<ReviewDashboardService.ModelCard> models, int selectedModelId) {
+        return models.stream()
+                .filter(model -> model.modelId() == selectedModelId)
+                .map(ReviewDashboardService.ModelCard::modelName)
+                .findFirst()
+                .orElse("-");
+    }
+
+    private String selectedTechniqueName(
+            List<ReviewDashboardService.TechniqueCard> techniques,
+            int selectedTechniqueId
+    ) {
+        return techniques.stream()
+                .filter(technique -> technique.techniqueId() == selectedTechniqueId)
+                .map(ReviewDashboardService.TechniqueCard::techniqueName)
+                .findFirst()
+                .orElse("-");
     }
 }

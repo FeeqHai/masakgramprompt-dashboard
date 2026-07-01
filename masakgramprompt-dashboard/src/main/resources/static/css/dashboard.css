@@ -955,9 +955,102 @@ pre {
 }
 
 .model-switch-form select,
-.batch-run-form select {
+.batch-run-form select,
+.single-run-form select {
     width: 100%;
     min-width: 0;
+}
+
+.experiment-run-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.experiment-run-card {
+    min-width: 0;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: #fafbfc;
+    padding: 16px;
+}
+
+.experiment-run-card-header {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 14px;
+}
+
+.experiment-run-card-header h3,
+.experiment-run-card-header p {
+    margin: 0;
+}
+
+.experiment-run-card-header h3 {
+    font-size: 17px;
+}
+
+.experiment-run-card-header p {
+    color: var(--muted);
+}
+
+.single-run-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: end;
+}
+
+.single-run-filter-form {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.single-run-form label {
+    display: grid;
+    gap: 8px;
+}
+
+.single-run-filter-form label {
+    display: grid;
+    gap: 8px;
+}
+
+.single-run-form label span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.single-run-filter-form label span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.single-run-filter-form select {
+    width: 100%;
+    min-width: 0;
+}
+
+.single-run-filter-form button {
+    min-height: 42px;
+}
+
+.single-run-form button {
+    width: 100%;
+}
+
+.inline-run-form {
+    margin: 0;
+}
+
+.inline-run-form .small-button {
+    border: 0;
+    cursor: pointer;
 }
 
 .batch-run-form {
@@ -969,6 +1062,17 @@ pre {
     border-radius: 6px;
     background: #fafbfc;
     padding: 14px;
+}
+
+.experiment-run-card .batch-run-form {
+    border: 0;
+    background: transparent;
+    padding: 0;
+}
+
+.compact-empty {
+    padding: 10px;
+    min-height: 34px;
 }
 
 .checkbox-grid {
@@ -1169,6 +1273,7 @@ pre {
     }
 
     .batch-run-form,
+    .single-run-filter-form,
     .checkbox-grid,
     .compact-meta-grid,
     .status-row,
@@ -1177,6 +1282,10 @@ pre {
     }
 
     .performance-model-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .experiment-run-grid {
         grid-template-columns: 1fr;
     }
 

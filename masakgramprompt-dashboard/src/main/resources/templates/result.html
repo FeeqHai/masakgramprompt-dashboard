@@ -19,6 +19,7 @@
 
         <nav class="nav">
             <a class="active" href="/models">Models</a>
+            <a href="/single-run">Single Run</a>
             <a href="/batch">Batch Experiment</a>
             <a href="/performance">Performance</a>
             <a href="/evaluation">Evaluation</a>
@@ -53,8 +54,6 @@
                     <div><dt>Reel ID</dt><dd th:text="${page.reel.reelId}">1</dd></div>
                     <div><dt>Instagram ID</dt><dd th:text="${page.reel.instagramReelId}">DV...</dd></div>
                     <div><dt>Influencer</dt><dd th:text="${'@' + page.reel.influencerAccount}">@account</dd></div>
-                    <div><dt>Duration</dt><dd>Not available</dd></div>
-                    <div><dt>Language Tag</dt><dd>Not available</dd></div>
                     <div><dt>Transcript</dt><dd th:text="${page.reel.transcriptStatusLabel()}">Available</dd></div>
                 </dl>
             </article>
