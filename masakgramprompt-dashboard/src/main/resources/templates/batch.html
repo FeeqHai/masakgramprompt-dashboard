@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Batch Experiment - MasakGramPrompt</title>
-    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=10)}">
 </head>
 <body>
 <div class="app-shell">
@@ -29,8 +29,8 @@
     <main class="content">
         <header class="topbar">
             <div>
-                <h1>Batch Experiment</h1>
-                <p>Run one selected model against one or more prompt techniques across all available transcripts.</p>
+                <h1>Experiment Runner</h1>
+                <p>Run one single test first, or run a full batch across all available transcripts.</p>
             </div>
         </header>
 
@@ -40,8 +40,78 @@
         <section class="panel">
             <div class="panel-header">
                 <div>
-                    <h2>Run Mode</h2>
-                    <p>Scope is currently all imported transcripts.</p>
+                    <h2>Single Run Experiment</h2>
+                    <p>Use this for testing one Reel, one model, and one prompt technique before running a batch.</p>
+                </div>
+                <span class="badge neutral">Single</span>
+            </div>
+
+            <form class="batch-run-form" id="singleRunForm" method="post" th:action="@{/batch/single/run}">
+                <div class="form-section">
+                    <h3>Step 1: Select Reel</h3>
+                    <select id="singleRunReel" name="reelId" required>
+                        <option th:each="reel : ${reels}"
+                                th:value="${reel.reelId}"
+                                th:disabled="${!reel.hasTranscript}"
+                                th:text="${reel.reelIdInstagram + (reel.hasTranscript ? '' : ' - no transcript')}">
+                            Reel
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-section">
+                    <h3>Step 2: Select Model</h3>
+                    <select id="singleRunModel" name="modelId" required>
+                        <option th:each="model : ${models}"
+                                th:value="${model.modelId}"
+                                th:selected="${model.modelId == selectedModelId}"
+                                th:text="${model.modelName + ' (' + model.modelTag + ')'}">
+                            Model
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-section">
+                    <h3>Step 3: Select Prompt</h3>
+                    <select id="singleRunTechnique" name="techniqueId" required>
+                        <option th:each="technique : ${promptTechniques}"
+                                th:value="${technique.techniqueId}"
+                                th:selected="${technique.techniqueName == 'structured-output'}"
+                                th:text="${technique.techniqueName}">
+                            structured-output
+                        </option>
+                    </select>
+                </div>
+
+                <button id="singleRunButton" type="submit" th:disabled="${#lists.isEmpty(reels) or #lists.isEmpty(models) or #lists.isEmpty(promptTechniques)}">
+                    Run Single Experiment
+                </button>
+            </form>
+
+            <div id="singleRunProgress" class="single-experiment-progress" hidden>
+                <div class="batch-progress-header">
+                    <span class="badge pending">Running</span>
+                    <strong>Single experiment is processing</strong>
+                    <span>Elapsed: <strong id="singleRunElapsed">0s</strong></span>
+                </div>
+                <progress aria-label="Single run progress"></progress>
+                <div class="batch-progress-details">
+                    <span>Reel: <strong id="singleRunReelName">-</strong></span>
+                    <span>Model: <strong id="singleRunModelName">-</strong></span>
+                    <span>Prompt: <strong id="singleRunTechniqueName">-</strong></span>
+                    <span>Stage: <strong id="singleRunStage">Preparing request</strong></span>
+                </div>
+                <p>
+                    Ollama is generating the nutrition JSON on your computer. The result page will open after the model finishes.
+                </p>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Batch Run Experiment</h2>
+                    <p>Run one selected model against one or more prompt techniques across all available transcripts.</p>
                 </div>
                 <span id="batch-badge"
                       th:class="${batchStatus.running} ? 'badge pending' : 'badge neutral'"
@@ -60,7 +130,7 @@
                 </label>
             </form>
 
-            <form class="batch-run-form" method="post" th:action="@{/batch/run}">
+            <form class="batch-run-form" id="batchRunForm" method="post" th:action="@{/batch/run}">
                 <div class="form-section">
                     <h3>Step 1: Select Model</h3>
                     <select name="modelId" required>
@@ -92,7 +162,7 @@
                     </label>
                 </div>
 
-                <button type="submit" th:disabled="${batchStatus.running or #lists.isEmpty(models) or #lists.isEmpty(techniqueStatusRows)}">
+                <button id="batchRunButton" type="submit" th:disabled="${batchStatus.running or #lists.isEmpty(models) or #lists.isEmpty(techniqueStatusRows)}">
                     Run Batch Experiment
                 </button>
             </form>
@@ -101,17 +171,21 @@
         <section class="panel">
             <div class="panel-header">
                 <div>
-                    <h2>Live Progress</h2>
+                    <h2>Live Batch Progress</h2>
                     <p>Refreshes while a batch is running.</p>
                 </div>
             </div>
 
             <div id="batch-progress" class="batch-status" th:attr="data-running=${batchStatus.running}">
                 <div class="batch-progress-header">
+                    <span id="batch-live-badge"
+                          th:class="${batchStatus.running} ? 'badge pending' : (${batchStatus.startedAt == null} ? 'badge neutral' : 'badge ok')"
+                          th:text="${batchStatus.running} ? 'Running' : (${batchStatus.startedAt == null} ? 'Ready' : 'Completed')">Ready</span>
                     <strong id="batch-condition"
                             th:text="${batchStatus.startedAt == null ? 'No batch started yet' : batchStatus.modelName + ' - ' + batchStatus.techniqueName}">
                         No batch started yet
                     </strong>
+                    <span>Elapsed: <strong id="batch-elapsed">0s</strong></span>
                     <span id="batch-current"
                           th:text="${batchStatus.running ? 'Current Reel: ' + batchStatus.currentReelInstagramId : ''}">
                     </span>
@@ -120,6 +194,7 @@
                           th:value="${batchStatus.completedRuns + batchStatus.failedRuns}"
                           th:max="${batchStatus.totalRuns == 0 ? 1 : batchStatus.totalRuns}">0</progress>
                 <div class="batch-progress-details">
+                    <span>Stage: <strong id="batch-stage" th:text="${batchStatus.currentStage == null ? 'Idle' : batchStatus.currentStage}">Idle</strong></span>
                     <span>Completed: <strong id="batch-completed" th:text="${batchStatus.completedRuns}">0</strong></span>
                     <span>Failed: <strong id="batch-failed" th:text="${batchStatus.failedRuns}">0</strong></span>
                     <span>Total: <strong id="batch-total" th:text="${batchStatus.totalRuns}">0</strong></span>
@@ -164,6 +239,60 @@
 </div>
 <script>
     const batchProgress = document.getElementById("batch-progress");
+    const batchStartedAt = Date.now();
+
+    function selectedText(selectElement) {
+        return selectElement.options[selectElement.selectedIndex]
+            ? selectElement.options[selectElement.selectedIndex].text
+            : "-";
+    }
+
+    function setupSingleRunProgress() {
+        const form = document.getElementById("singleRunForm");
+        const button = document.getElementById("singleRunButton");
+        const progress = document.getElementById("singleRunProgress");
+        const reel = document.getElementById("singleRunReel");
+        const model = document.getElementById("singleRunModel");
+        const technique = document.getElementById("singleRunTechnique");
+        const elapsed = document.getElementById("singleRunElapsed");
+        const stage = document.getElementById("singleRunStage");
+
+        if (!form) {
+            return;
+        }
+
+        form.addEventListener("submit", function () {
+            if (button.disabled) {
+                return;
+            }
+
+            const startedAt = Date.now();
+            const stages = [
+                "Preparing request",
+                "Reading transcript file",
+                "Building prompt",
+                "Waiting for Ollama response",
+                "Parsing JSON output",
+                "Saving result to database"
+            ];
+
+            document.getElementById("singleRunReelName").textContent = selectedText(reel);
+            document.getElementById("singleRunModelName").textContent = selectedText(model);
+            document.getElementById("singleRunTechniqueName").textContent = selectedText(technique);
+            progress.hidden = false;
+            button.disabled = true;
+            button.textContent = "Running...";
+            stage.textContent = stages[0];
+            progress.scrollIntoView({ behavior: "smooth", block: "center" });
+
+            window.setInterval(function () {
+                const seconds = Math.floor((Date.now() - startedAt) / 1000);
+                elapsed.textContent = seconds + "s";
+                const stageIndex = Math.min(stages.length - 1, Math.floor(seconds / 8));
+                stage.textContent = stages[stageIndex];
+            }, 1000);
+        });
+    }
 
     async function refreshBatchStatus() {
         try {
@@ -177,7 +306,9 @@
             const failed = status.failedRuns || 0;
             const total = status.totalRuns || 0;
             const badge = document.getElementById("batch-badge");
+            const liveBadge = document.getElementById("batch-live-badge");
             const progressBar = document.getElementById("batch-progress-bar");
+            const elapsedSeconds = Math.floor((Date.now() - batchStartedAt) / 1000);
 
             document.getElementById("batch-condition").textContent = status.startedAt
                 ? `${status.modelName} - ${status.techniqueName}`
@@ -185,6 +316,8 @@
             document.getElementById("batch-current").textContent = status.running && status.currentReelInstagramId
                 ? `Current Reel: ${status.currentReelInstagramId}`
                 : "";
+            document.getElementById("batch-stage").textContent = status.currentStage || "Idle";
+            document.getElementById("batch-elapsed").textContent = status.running ? `${elapsedSeconds}s` : "0s";
             document.getElementById("batch-completed").textContent = completed;
             document.getElementById("batch-failed").textContent = failed;
             document.getElementById("batch-total").textContent = total;
@@ -198,8 +331,12 @@
             progressBar.value = completed + failed;
             batchProgress.dataset.running = status.running;
 
-            badge.textContent = status.running ? "Running" : (status.startedAt ? "Completed" : "Ready");
-            badge.className = status.running ? "badge pending" : (status.startedAt ? "badge ok" : "badge neutral");
+            const statusText = status.running ? "Running" : (status.startedAt ? "Completed" : "Ready");
+            const statusClass = status.running ? "badge pending" : (status.startedAt ? "badge ok" : "badge neutral");
+            badge.textContent = statusText;
+            badge.className = statusClass;
+            liveBadge.textContent = statusText;
+            liveBadge.className = statusClass;
 
             if (status.running) {
                 window.setTimeout(refreshBatchStatus, 2000);
@@ -212,6 +349,8 @@
             window.setTimeout(refreshBatchStatus, 4000);
         }
     }
+
+    setupSingleRunProgress();
 
     if (batchProgress.dataset.running === "true") {
         batchProgress.dataset.wasRunning = "true";
