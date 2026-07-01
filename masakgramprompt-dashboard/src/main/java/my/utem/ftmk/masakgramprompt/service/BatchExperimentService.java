@@ -26,9 +26,24 @@ public class BatchExperimentService {
         this.experimentRunnerService = experimentRunnerService;
     }
 
+    /**
+     * Backward-compatible helper for pages that still submit one technique.
+     */
     public synchronized boolean start(int modelId, int techniqueId) {
+        return start(modelId, List.of(techniqueId));
+    }
+
+    /**
+     * Starts one model against one or more prompt techniques.
+     * The existing LLM runner is reused so previous rows are only replaced for
+     * the same transcript/model/technique combination.
+     */
+    public synchronized boolean start(int modelId, List<Integer> techniqueIds) {
         if (status.isRunning()) {
             return false;
+        }
+        if (techniqueIds == null || techniqueIds.isEmpty()) {
+            throw new IllegalStateException("Select at least one prompt technique.");
         }
 
         List<ReelInput> reels = loadReelsWithTranscript();
@@ -37,7 +52,7 @@ public class BatchExperimentService {
         }
 
         status.setRunning(true);
-        status.setTotalRuns(reels.size());
+        status.setTotalRuns(reels.size() * techniqueIds.size());
         status.setCompletedRuns(0);
         status.setFailedRuns(0);
         status.setTotalProcessingTimeMs(0);
@@ -45,11 +60,11 @@ public class BatchExperimentService {
         status.setCurrentReelId(null);
         status.setCurrentReelInstagramId(null);
         status.setModelName(loadModelName(modelId));
-        status.setTechniqueName(loadTechniqueName(techniqueId));
+        status.setTechniqueName(loadTechniqueNames(techniqueIds));
         status.setStartedAt(LocalDateTime.now());
         status.setFinishedAt(null);
 
-        executor.submit(() -> runBatch(reels, modelId, techniqueId));
+        executor.submit(() -> runBatch(reels, modelId, techniqueIds));
         return true;
     }
 
@@ -70,30 +85,39 @@ public class BatchExperimentService {
         return copy;
     }
 
-    private void runBatch(List<ReelInput> reels, int modelId, int techniqueId) {
+    private void runBatch(List<ReelInput> reels, int modelId, List<Integer> techniqueIds) {
         try {
-            for (ReelInput reel : reels) {
-                synchronized (this) {
-                    status.setCurrentReelId(reel.reelId());
-                    status.setCurrentReelInstagramId(reel.instagramId());
-                }
+            for (Integer techniqueId : techniqueIds) {
+                for (ReelInput reel : reels) {
+                    synchronized (this) {
+                        status.setCurrentReelId(reel.reelId());
+                        status.setCurrentReelInstagramId(reel.instagramId());
+                    }
 
-                long runStartedAtNanos = System.nanoTime();
-                try {
-                    experimentRunnerService.run(reel.reelId(), modelId, techniqueId);
-                    synchronized (this) {
-                        status.setCompletedRuns(status.getCompletedRuns() + 1);
-                    }
-                } catch (Exception ex) {
-                    synchronized (this) {
-                        status.setFailedRuns(status.getFailedRuns() + 1);
-                    }
-                    System.err.printf("Batch run failed for Reel %d: %s%n", reel.reelId(), ex.getMessage());
-                } finally {
-                    long processingTimeMs = java.time.Duration.ofNanos(System.nanoTime() - runStartedAtNanos).toMillis();
-                    synchronized (this) {
-                        status.setLastProcessingTimeMs(processingTimeMs);
-                        status.setTotalProcessingTimeMs(status.getTotalProcessingTimeMs() + processingTimeMs);
+                    long runStartedAtNanos = System.nanoTime();
+                    try {
+                        experimentRunnerService.run(reel.reelId(), modelId, techniqueId);
+                        synchronized (this) {
+                            status.setCompletedRuns(status.getCompletedRuns() + 1);
+                        }
+                    } catch (Exception ex) {
+                        synchronized (this) {
+                            status.setFailedRuns(status.getFailedRuns() + 1);
+                        }
+                        System.err.printf(
+                                "Batch run failed for Reel %d and technique %d: %s%n",
+                                reel.reelId(),
+                                techniqueId,
+                                ex.getMessage()
+                        );
+                    } finally {
+                        long processingTimeMs = java.time.Duration
+                                .ofNanos(System.nanoTime() - runStartedAtNanos)
+                                .toMillis();
+                        synchronized (this) {
+                            status.setLastProcessingTimeMs(processingTimeMs);
+                            status.setTotalProcessingTimeMs(status.getTotalProcessingTimeMs() + processingTimeMs);
+                        }
                     }
                 }
             }
@@ -103,8 +127,8 @@ public class BatchExperimentService {
                 status.setCurrentReelId(null);
                 status.setCurrentReelInstagramId(null);
                 status.setFinishedAt(LocalDateTime.now());
-             }
-        }  
+            }
+        }
     }
 
     private List<ReelInput> loadReelsWithTranscript() {
@@ -120,19 +144,32 @@ public class BatchExperimentService {
     }
 
     private String loadModelName(int modelId) {
-        return jdbcTemplate.query("SELECT model_name FROM llm_model WHERE model_id = ?", 
-                (rs, rowNum) -> rs.getString("model_name"), modelId)
+        return jdbcTemplate.query(
+                "SELECT model_name FROM llm_model WHERE model_id = ?",
+                (rs, rowNum) -> rs.getString("model_name"),
+                modelId
+        )
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Model not found: " + modelId));
     }
 
     private String loadTechniqueName(int techniqueId) {
-        return jdbcTemplate.query("SELECT technique_name FROM prompt_technique WHERE technique_id = ?", 
-                (rs, rowNum) -> rs.getString("technique_name"), techniqueId)
+        return jdbcTemplate.query(
+                "SELECT technique_name FROM prompt_technique WHERE technique_id = ?",
+                (rs, rowNum) -> rs.getString("technique_name"),
+                techniqueId
+        )
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Prompt technique not found: " + techniqueId));
+    }
+
+    private String loadTechniqueNames(List<Integer> techniqueIds) {
+        return techniqueIds.stream()
+                .map(this::loadTechniqueName)
+                .reduce((left, right) -> left + ", " + right)
+                .orElse("No technique selected");
     }
 
     @PreDestroy

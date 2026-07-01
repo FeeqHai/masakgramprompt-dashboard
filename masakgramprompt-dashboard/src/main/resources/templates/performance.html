@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Runtime Analytics</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a class="active" href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <h1>Performance Analytics</h1>
+                <p>Processing time is calculated from completed experiments only.</p>
+            </div>
+        </header>
+
+        <section class="summary-grid">
+            <article class="metric"><span>Total Completed Runs</span><strong th:text="${page.totalCompletedRuns}">0</strong></article>
+            <article class="metric"><span>Fastest Model</span><strong th:text="${page.fastestModel}">-</strong></article>
+            <article class="metric"><span>Slowest Model</span><strong th:text="${page.slowestModel}">-</strong></article>
+            <article class="metric"><span>Average Processing Time</span><strong th:text="${page.averageProcessingTime}">-</strong></article>
+        </section>
+
+        <section class="panel" th:each="modelGroup : ${page.modelGroups}">
+            <div class="panel-header">
+                <div>
+                    <h2 th:text="${modelGroup.modelName}">Model</h2>
+                    <p th:text="${modelGroup.modelTag}">model:tag</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="performance-table">
+                    <thead>
+                    <tr>
+                        <th>Technique</th>
+                        <th>Avg Time</th>
+                        <th>Runs</th>
+                        <th>Min Time</th>
+                        <th>Max Time</th>
+                        <th>Failed</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="technique : ${modelGroup.techniques}">
+                        <td th:text="${technique.techniqueName}">zero-shot</td>
+                        <td th:text="${technique.averageSeconds == null ? 'No data' : technique.averageSeconds + 's'}">-</td>
+                        <td th:text="${technique.status.completed}">0</td>
+                        <td th:text="${technique.minSeconds == null ? '-' : technique.minSeconds + 's'}">-</td>
+                        <td th:text="${technique.maxSeconds == null ? '-' : technique.maxSeconds + 's'}">-</td>
+                        <td th:text="${technique.status.failed}">0</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

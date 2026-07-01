@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reel Result - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Fact Sheet</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a class="active" href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <a class="back-link"
+                   th:href="@{/models/{modelId}/techniques/{techniqueId}/reels(modelId=${page.model.modelId},techniqueId=${page.technique.techniqueId})}">
+                    Back to reels
+                </a>
+                <h1 th:text="${'Reel ' + page.reel.instagramReelId}">Reel Result</h1>
+                <p th:text="${page.model.modelName + ' - ' + page.technique.techniqueName}">
+                    Model and technique
+                </p>
+            </div>
+            <div class="top-actions">
+                <a class="api-link"
+                   th:href="@{/models/{modelId}/techniques/{techniqueId}/reels/{reelId}/result/fact-sheet.csv(modelId=${page.model.modelId},techniqueId=${page.technique.techniqueId},reelId=${page.reel.reelId})}">
+                    Download This Fact Sheet CSV
+                </a>
+            </div>
+        </header>
+
+        <section class="fact-grid" aria-label="Result facts">
+            <article class="panel fact-card">
+                <h2>Reel Info</h2>
+                <dl class="fact-list">
+                    <div><dt>Reel ID</dt><dd th:text="${page.reel.reelId}">1</dd></div>
+                    <div><dt>Instagram ID</dt><dd th:text="${page.reel.instagramReelId}">DV...</dd></div>
+                    <div><dt>Influencer</dt><dd th:text="${'@' + page.reel.influencerAccount}">@account</dd></div>
+                    <div><dt>Duration</dt><dd>Not available</dd></div>
+                    <div><dt>Language Tag</dt><dd>Not available</dd></div>
+                    <div><dt>Transcript</dt><dd th:text="${page.reel.transcriptStatusLabel()}">Available</dd></div>
+                </dl>
+            </article>
+
+            <article class="panel fact-card">
+                <h2>Experiment Info</h2>
+                <dl class="fact-list">
+                    <div><dt>Model</dt><dd th:text="${page.model.modelName}">Model</dd></div>
+                    <div><dt>Prompt</dt><dd th:text="${page.technique.techniqueName}">Technique</dd></div>
+                    <div><dt>Status</dt><dd><span class="badge neutral" th:text="${page.experiment.status}">status</span></dd></div>
+                    <div><dt>Processing Time</dt><dd th:text="${page.experiment.processingTimeLabel()}">42.5s</dd></div>
+                    <div><dt>Started</dt><dd th:text="${page.experiment.startedAt == null ? 'Not available' : page.experiment.startedAt}">-</dd></div>
+                    <div><dt>Finished</dt><dd th:text="${page.experiment.finishedAt == null ? 'Not available' : page.experiment.finishedAt}">-</dd></div>
+                </dl>
+                <a class="small-button secondary-action" href="/performance">View full Performance Analytics</a>
+            </article>
+
+            <article class="panel fact-card">
+                <h2>Ground Truth Info</h2>
+                <dl class="fact-list">
+                    <div>
+                        <dt>Status</dt>
+                        <dd>
+                            <span th:class="${page.groundTruth.available ? 'badge ok' : 'badge pending'}"
+                                  th:text="${page.groundTruth.available ? 'Available' : 'Missing'}">Available</span>
+                        </dd>
+                    </div>
+                    <div><dt>Annotator</dt><dd th:text="${page.groundTruth.annotatorName == null ? 'Not available' : page.groundTruth.annotatorName}">Name</dd></div>
+                    <div><dt>Matric</dt><dd th:text="${page.groundTruth.annotatorMatric == null ? 'Not available' : page.groundTruth.annotatorMatric}">Matric</dd></div>
+                    <div><dt>Ingredient Count</dt><dd th:text="${page.groundTruth.ingredientCount}">0</dd></div>
+                    <div><dt>Annotated At</dt><dd th:text="${page.groundTruth.annotatedAt == null ? 'Not available' : page.groundTruth.annotatedAt}">-</dd></div>
+                </dl>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Transcript Preview</h2>
+                    <p>Common Malay and code-switched cooking terms are highlighted.</p>
+                </div>
+            </div>
+            <div class="transcript-preview">
+                <span th:each="segment : ${page.transcriptSegments}"
+                      th:class="${segment.highlighted ? 'term-badge' : ''}"
+                      th:text="${segment.text}">Transcript</span>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Evaluation Metrics</h2>
+                    <p>Ingredient detection metrics are calculated against human ground truth.</p>
+                </div>
+            </div>
+            <div class="metric-grid">
+                <article><span>Ground Truth</span><strong th:text="${page.metrics.groundTruthCount}">0</strong></article>
+                <article><span>AI Ingredients</span><strong th:text="${page.metrics.aiCount}">0</strong></article>
+                <article><span>Matched</span><strong th:text="${page.metrics.matchedCount}">0</strong></article>
+                <article><span>Missed</span><strong th:text="${page.metrics.missedCount}">0</strong></article>
+                <article><span>Extra AI</span><strong th:text="${page.metrics.extraCount}">0</strong></article>
+                <article><span>Precision</span><strong th:text="${page.metrics.precision}">0</strong></article>
+                <article><span>Recall</span><strong th:text="${page.metrics.recall}">0</strong></article>
+                <article><span>F1</span><strong th:text="${page.metrics.f1}">0</strong></article>
+                <article><span>JSON Valid</span><strong th:text="${page.metrics.jsonValid ? 'Yes' : 'No'}">Yes</strong></article>
+                <article><span>Hallucination</span><strong th:text="${page.metrics.hallucinationCount}">0</strong></article>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Ground Truth vs AI Ingredients</h2>
+                    <p>Matched, missed, and extra AI ingredients are shown side by side.</p>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(page.ingredientRows)}" class="empty-state">
+                No ground truth or AI ingredient rows are available for this reel.
+            </div>
+
+            <div th:if="${!#lists.isEmpty(page.ingredientRows)}" class="table-wrap">
+                <table class="comparison-table">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Status</th>
+                        <th>Ground Truth Ingredient</th>
+                        <th>Ground Truth Details</th>
+                        <th>AI Extracted Ingredient</th>
+                        <th>AI Details</th>
+                        <th>Nutrition Snapshot</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${page.ingredientRows}">
+                        <td th:text="${row.rowNumber}">1</td>
+                        <td>
+                            <span th:class="${'badge ' + row.cssClass}" th:text="${row.status}">Matched</span>
+                        </td>
+                        <td>
+                            <strong th:text="${row.groundTruth == null ? '-' : row.groundTruth.nameOriginal}">GT</strong>
+                            <span class="muted" th:text="${row.groundTruth == null ? '-' : row.groundTruth.nameEn}">English</span>
+                        </td>
+                        <td>
+                            <span th:text="${row.groundTruth == null ? 'Not available' : row.groundTruth.displayQuantity()}">Quantity</span>
+                            <span class="muted" th:text="${row.groundTruth == null ? '-' : row.groundTruth.quantityCategory}">Category</span>
+                            <span class="muted" th:text="${row.groundTruth == null ? '-' : row.groundTruth.languageMentioned}">Language</span>
+                            <span class="muted" th:text="${row.groundTruth == null ? '-' : row.groundTruth.estimatedWeightG + ' g'}">Weight</span>
+                        </td>
+                        <td>
+                            <strong th:text="${row.ai == null ? '-' : row.ai.nameOriginal}">AI</strong>
+                            <span class="muted" th:text="${row.ai == null ? '-' : row.ai.nameEn}">English</span>
+                        </td>
+                        <td>
+                            <span th:text="${row.ai == null ? 'Not available' : row.ai.displayQuantity()}">Quantity</span>
+                            <span class="muted" th:text="${row.ai == null ? '-' : row.ai.quantityUnitEn}">Unit</span>
+                            <span class="muted" th:text="${row.ai == null ? '-' : row.ai.estimatedWeightG + ' g'}">Weight</span>
+                        </td>
+                        <td>
+                            <span th:text="${row.ai == null ? 'AI calories: -' : 'AI calories: ' + row.ai.nutrition.calories}">Calories</span>
+                            <span class="muted" th:text="${row.groundTruth == null ? 'GT calories: -' : 'GT calories: ' + row.groundTruth.nutrition.calories}">GT calories</span>
+                            <span class="muted" th:text="${row.ai == null ? 'AI protein: -' : 'AI protein: ' + row.ai.nutrition.proteinG + ' g'}">Protein</span>
+                            <span class="muted" th:text="${row.ai == null ? 'AI fat: -' : 'AI fat: ' + row.ai.nutrition.totalFatG + ' g'}">Fat</span>
+                            <span class="muted" th:text="${row.ai == null ? 'AI carbs: -' : 'AI carbs: ' + row.ai.nutrition.totalCarbohydrateG + ' g'}">Carbs</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Nutrition Total Comparison</h2>
+                    <p>Ground truth totals are summed from annotations; AI totals come from `nutrition_result` when available.</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="nutrition-table">
+                    <thead>
+                    <tr>
+                        <th>Nutrition Field</th>
+                        <th>Ground Truth Total</th>
+                        <th>AI Total</th>
+                        <th>Difference</th>
+                        <th>Percentage Error</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${page.nutritionRows}">
+                        <td>
+                            <strong th:text="${row.label}">Calories</strong>
+                            <span class="muted" th:text="${row.unit}">kcal</span>
+                        </td>
+                        <td th:text="${row.groundTruthValue == null ? '-' : row.groundTruthValue}">0</td>
+                        <td th:text="${row.aiValue == null ? '-' : row.aiValue}">0</td>
+                        <td th:text="${row.difference == null ? '-' : row.difference}">0</td>
+                        <td th:text="${row.percentageError == null ? '-' : #numbers.formatDecimal(row.percentageError, 1, 1) + '%'}">0%</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel technical-output">
+            <details>
+                <summary>Raw JSON Response</summary>
+                <pre class="modal-raw-json" th:text="${page.experiment.rawJsonOutput == null ? '{}' : page.experiment.rawJsonOutput}">{}</pre>
+            </details>
+        </section>
+    </main>
+</div>
+</body>
+</html>

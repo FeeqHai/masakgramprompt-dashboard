@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exports - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>CSV Outputs</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a class="active" href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <h1>Exports</h1>
+                <p>Download the 10 CSV files required for evaluation layers.</p>
+            </div>
+            <div class="top-actions">
+                <a class="api-link" th:href="@{/exports/llm-results.xlsx}">Download Excel Helper</a>
+            </div>
+        </header>
+
+        <section class="export-grid">
+            <article class="export-card" th:each="item : ${exports}">
+                <div>
+                    <h2 th:text="${item.fileName}">layer1a_exact_match.csv</h2>
+                    <strong th:text="${item.title}">Exact ingredient matches</strong>
+                    <p th:text="${item.description}">Description</p>
+                </div>
+                <a class="small-button action-button" th:href="@{/exports/{name}(name=${item.fileName})}">
+                    Download CSV
+                </a>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>

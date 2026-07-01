@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${selectedModel.modelName + ' Techniques - MasakGramPrompt'}">Techniques</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Review Mode</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a class="active" href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <a class="back-link" href="/models">Back to models</a>
+                <h1 th:text="${selectedModel.modelName}">Selected Model</h1>
+                <p>
+                    <span th:text="${selectedModel.modelTag}">model:tag</span>
+                    <span> - </span>
+                    <span th:text="${selectedModel.provider}">Provider</span>
+                </p>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Prompt Techniques</h2>
+                    <p>Choose the prompt condition for this model.</p>
+                </div>
+            </div>
+
+            <div class="technique-grid">
+                <article class="technique-card" th:each="technique : ${techniques}">
+                    <div>
+                        <h3 th:text="${technique.techniqueName}">zero-shot</h3>
+                        <p th:text="${technique.description == null ? 'No description stored.' : technique.description}">
+                            Technique description
+                        </p>
+                    </div>
+
+                    <dl class="status-row">
+                        <div>
+                            <dt>Pending</dt>
+                            <dd th:text="${technique.status.pending}">0</dd>
+                        </div>
+                        <div>
+                            <dt>Running</dt>
+                            <dd th:text="${technique.status.running}">0</dd>
+                        </div>
+                        <div>
+                            <dt>Completed</dt>
+                            <dd th:text="${technique.status.completed}">0</dd>
+                        </div>
+                        <div>
+                            <dt>Failed</dt>
+                            <dd th:text="${technique.status.failed}">0</dd>
+                        </div>
+                    </dl>
+
+                    <a class="small-button action-button"
+                       th:href="@{/models/{modelId}/techniques/{techniqueId}/reels(modelId=${selectedModel.modelId},techniqueId=${technique.techniqueId})}">
+                        View Reels
+                    </a>
+                </article>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

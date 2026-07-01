@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${'Reel ' + reel.reelIdInstagram + ' - MasakGramPrompt'}">Reel Detail</title>
-    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=7)}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
 </head>
 <body>
 <div class="app-shell">
@@ -18,18 +18,18 @@
         </div>
 
         <nav class="nav">
-            <a href="/dashboard">Dashboard</a>
-            <a class="active" th:href="@{/reels/{id}(id=${reel.reelId})}">Selected Reel</a>
-            <a href="#audio">Audio</a>
-            <a href="#transcript">Transcript</a>
-            <a href="#experiments">Experiments</a>
+            <a href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
         </nav>
     </aside>
 
     <main class="content">
         <header class="topbar">
             <div>
-                <a class="back-link" href="/dashboard">Back to dashboard</a>
+                <a class="back-link" href="/models">Back to models</a>
                 <h1 th:text="${reel.reelIdInstagram}">Reel ID</h1>
                 <p>
                     <span th:text="${reel.influencerName}">Influencer</span>
@@ -290,9 +290,6 @@
                                     th:data-result-id="${experiment.nutritionResultId}">
                                 View Raw JSON
                             </button>
-                            <span th:if="${experiment.nutritionRecipeName != null}"
-                                  class="muted"
-                                  th:text="${experiment.nutritionRecipeName}">Recipe</span>
                             <div th:if="${experiment.nutritionResultId != null}"
                                  class="nutrition-modal-source"
                                  hidden

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reels - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Review Mode</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a class="active" href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <a class="back-link"
+                   th:href="@{/models/{modelId}/techniques(modelId=${selectedModel.modelId})}">
+                    Back to techniques
+                </a>
+                <h1 th:text="${selectedModel.modelName + ' - ' + selectedTechnique.techniqueName}">Model Technique</h1>
+                <p>Review transcript readiness, ground truth status, and LLM result status for each reel.</p>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Reels Detail</h2>
+                    <p>Clean view for the selected model and prompt technique.</p>
+                </div>
+                <span class="badge neutral">
+                    <span th:text="${#lists.size(reels)}">0</span> reels
+                </span>
+            </div>
+
+            <div th:if="${#lists.isEmpty(reels)}" class="empty-state">
+                No reels were found.
+            </div>
+
+            <div th:if="${!#lists.isEmpty(reels)}" class="table-wrap">
+                <table class="review-table">
+                    <thead>
+                    <tr>
+                        <th>Reel / Transcript</th>
+                        <th>Reel Info</th>
+                        <th>Transcript</th>
+                        <th>Ground Truth</th>
+                        <th>Result Status</th>
+                        <th>Action</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="reel : ${reels}">
+                        <td>
+                            <strong th:text="${'Reel ' + reel.reelId}">Reel 1</strong>
+                            <span class="muted"
+                                  th:text="${reel.transcriptId == null ? 'Transcript missing' : 'Transcript ' + reel.transcriptId}">
+                                Transcript
+                            </span>
+                        </td>
+                        <td>
+                            <a th:href="${reel.reelUrl}" target="_blank" th:text="${reel.instagramReelId}">Instagram ID</a>
+                            <span class="muted" th:text="${'@' + reel.influencerAccount}">@account</span>
+                        </td>
+                        <td>
+                            <span th:class="${reel.transcriptId == null ? 'badge missing' : 'badge ok'}"
+                                  th:text="${reel.transcriptStatusLabel()}">Available</span>
+                        </td>
+                        <td>
+                            <span th:class="${reel.groundTruthAvailable ? 'badge ok' : 'badge pending'}"
+                                  th:text="${reel.groundTruthAvailable ? 'Ready' : 'Missing'}">Ready</span>
+                            <span class="muted"
+                                  th:text="${reel.groundTruthIngredientCount + ' ingredients'}">0 ingredients</span>
+                        </td>
+                        <td>
+                            <span th:class="${reel.resultId != null ? 'badge ok' : 'badge missing'}"
+                                  th:text="${reel.resultStatusLabel()}">No result</span>
+                            <span class="muted"
+                                  th:if="${reel.jsonValid != null}"
+                                  th:text="${reel.jsonValid ? 'Valid JSON' : 'Invalid JSON'}">JSON</span>
+                        </td>
+                        <td>
+                            <a th:if="${reel.resultId != null}"
+                               class="small-button"
+                               th:href="@{/models/{modelId}/techniques/{techniqueId}/reels/{reelId}/result(modelId=${selectedModel.modelId},techniqueId=${selectedTechnique.techniqueId},reelId=${reel.reelId})}">
+                                View Result
+                            </a>
+                            <span th:if="${reel.resultId == null}" class="badge missing">No result</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,10 +1,15 @@
 package my.utem.ftmk.masakgramprompt.controller;
 
+import my.utem.ftmk.masakgramprompt.model.BatchRunStatus;
 import my.utem.ftmk.masakgramprompt.service.DashboardService;
 import my.utem.ftmk.masakgramprompt.service.BatchExperimentService;
+import my.utem.ftmk.masakgramprompt.service.CsvExportService;
 import my.utem.ftmk.masakgramprompt.service.DatasetImportService;
+import my.utem.ftmk.masakgramprompt.service.EvaluationService;
 import my.utem.ftmk.masakgramprompt.service.ExcelExportService;
 import my.utem.ftmk.masakgramprompt.service.LlmExperimentRunnerService;
+import my.utem.ftmk.masakgramprompt.service.ReviewDashboardService;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,8 +25,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Controller
 public class DashboardController {
@@ -31,22 +38,36 @@ public class DashboardController {
     private final DatasetImportService datasetImportService;
     private final BatchExperimentService batchExperimentService;
     private final ExcelExportService excelExportService;
+    private final ReviewDashboardService reviewDashboardService;
+    private final EvaluationService evaluationService;
+    private final CsvExportService csvExportService;
 
     public DashboardController(
             DashboardService dashboardService,
             LlmExperimentRunnerService llmExperimentRunnerService,
             DatasetImportService datasetImportService,
             BatchExperimentService batchExperimentService,
-            ExcelExportService excelExportService
+            ExcelExportService excelExportService,
+            ReviewDashboardService reviewDashboardService,
+            EvaluationService evaluationService,
+            CsvExportService csvExportService
     ) {
         this.dashboardService = dashboardService;
         this.llmExperimentRunnerService = llmExperimentRunnerService;
         this.datasetImportService = datasetImportService;
         this.batchExperimentService = batchExperimentService;
         this.excelExportService = excelExportService;
+        this.reviewDashboardService = reviewDashboardService;
+        this.evaluationService = evaluationService;
+        this.csvExportService = csvExportService;
     }
 
-    @GetMapping({"/", "/dashboard"})
+    @GetMapping("/")
+    public String home() {
+        return "redirect:/models";
+    }
+
+    @GetMapping("/dashboard")
     public String dashboard(Model model) {
         model.addAttribute("summary", dashboardService.getSummary());
         model.addAttribute("reels", dashboardService.findAllReels());
@@ -72,6 +93,125 @@ public class DashboardController {
         return "redirect:/dashboard";
     }
 
+    @GetMapping("/models")
+    public String models(Model model) {
+        model.addAttribute("activePage", "models");
+        model.addAttribute("models", reviewDashboardService.findModelCards());
+        return "models";
+    }
+
+    @GetMapping("/models/{modelId}/techniques")
+    public String modelTechniques(@PathVariable int modelId, Model model) {
+        var selectedModel = reviewDashboardService.findModelCard(modelId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Model not found"));
+
+        model.addAttribute("activePage", "models");
+        model.addAttribute("selectedModel", selectedModel);
+        model.addAttribute("techniques", reviewDashboardService.findTechniqueCards(modelId));
+        return "techniques";
+    }
+
+    @GetMapping("/models/{modelId}/techniques/{techniqueId}/reels")
+    public String modelTechniqueReels(
+            @PathVariable int modelId,
+            @PathVariable int techniqueId,
+            Model model
+    ) {
+        var selectedModel = reviewDashboardService.findModelCard(modelId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Model not found"));
+        var selectedTechnique = reviewDashboardService.findTechniqueCard(modelId, techniqueId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt technique not found"));
+
+        model.addAttribute("activePage", "models");
+        model.addAttribute("selectedModel", selectedModel);
+        model.addAttribute("selectedTechnique", selectedTechnique);
+        model.addAttribute("reels", reviewDashboardService.findReelRows(modelId, techniqueId));
+        return "model-reels";
+    }
+
+    @GetMapping("/models/{modelId}/techniques/{techniqueId}/reels/{reelId}/result")
+    public String reelResult(
+            @PathVariable int modelId,
+            @PathVariable int techniqueId,
+            @PathVariable int reelId,
+            Model model
+    ) {
+        try {
+            model.addAttribute("activePage", "models");
+            model.addAttribute("page", reviewDashboardService.loadResultPage(modelId, techniqueId, reelId));
+            model.addAttribute("nutritionFields", reviewDashboardService.nutritionFields());
+            return "result";
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping("/batch")
+    public String batch(
+            @RequestParam(name = "modelId", required = false) Integer modelId,
+            Model model
+    ) {
+        var models = reviewDashboardService.findModelCards();
+        int selectedModelId = modelId == null && !models.isEmpty() ? models.get(0).modelId() : modelId == null ? 0 : modelId;
+
+        model.addAttribute("activePage", "batch");
+        model.addAttribute("models", models);
+        model.addAttribute("selectedModelId", selectedModelId);
+        model.addAttribute("techniqueStatusRows", selectedModelId == 0
+                ? List.of()
+                : reviewDashboardService.findTechniqueCards(selectedModelId));
+        model.addAttribute("batchStatus", batchExperimentService.getStatus());
+        return "batch";
+    }
+
+    @PostMapping("/batch/run")
+    public String runBatchFromBatchPage(
+            @RequestParam int modelId,
+            @RequestParam(name = "techniqueIds", required = false) List<Integer> techniqueIds,
+            RedirectAttributes redirectAttributes
+    ) {
+        try {
+            boolean started = batchExperimentService.start(modelId, techniqueIds);
+            if (started) {
+                redirectAttributes.addFlashAttribute(
+                        "successMessage",
+                        "Batch started for " + techniqueIds.size() + " selected prompt technique(s)."
+                );
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", "A batch is already running.");
+            }
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Batch could not start: " + ex.getMessage());
+        }
+        return "redirect:/batch?modelId=" + modelId;
+    }
+
+    @GetMapping("/batch/status")
+    public ResponseEntity<BatchRunStatus> batchStatus() {
+        return ResponseEntity.ok(batchExperimentService.getStatus());
+    }
+
+    @GetMapping("/performance")
+    public String performance(Model model) {
+        model.addAttribute("activePage", "performance");
+        model.addAttribute("page", reviewDashboardService.loadPerformancePage());
+        return "performance";
+    }
+
+    @GetMapping("/evaluation")
+    public String evaluation(Model model) {
+        model.addAttribute("activePage", "evaluation");
+        model.addAttribute("aggregates", evaluationService.aggregateByModelTechnique());
+        return "evaluation";
+    }
+
+    @GetMapping("/exports")
+    public String exports(Model model) {
+        model.addAttribute("activePage", "exports");
+        model.addAttribute("exports", csvExportService.exportDefinitions());
+        return "exports";
+    }
+
     @PostMapping("/experiments/batch")
     public String runBatch(
             @RequestParam int modelId,
@@ -91,7 +231,7 @@ public class DashboardController {
         } catch (Exception ex) {
             redirectAttributes.addFlashAttribute("errorMessage", "Batch could not start: " + ex.getMessage());
         }
-        return "redirect:/dashboard";
+        return "redirect:/batch?modelId=" + modelId;
     }
 
     @GetMapping("/exports/llm-results.xlsx")
@@ -114,6 +254,35 @@ public class DashboardController {
                     "Excel export failed. Update the Maven project in Eclipse, restart the dashboard, and try again.",
                     ex
             );
+        }
+    }
+
+    @GetMapping(
+            value = "/exports/{exportName:.+\\.csv}",
+            produces = "text/csv; charset=UTF-8"
+    )
+    public ResponseEntity<String> downloadCsvExport(@PathVariable String exportName) {
+        try {
+            CsvExportService.CsvFile file = csvExportService.generateExport(exportName);
+            return csvResponse(file);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping(
+            value = "/models/{modelId}/techniques/{techniqueId}/reels/{reelId}/result/fact-sheet.csv",
+            produces = "text/csv; charset=UTF-8"
+    )
+    public ResponseEntity<String> downloadFactSheet(
+            @PathVariable int modelId,
+            @PathVariable int techniqueId,
+            @PathVariable int reelId
+    ) {
+        try {
+            return csvResponse(csvExportService.generateFactSheet(modelId, techniqueId, reelId));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }
     }
 
@@ -152,5 +321,16 @@ public class DashboardController {
         }
 
         return "redirect:/reels/" + reelId + "#experiments";
+    }
+
+    private ResponseEntity<String> csvResponse(CsvExportService.CsvFile file) {
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(file.fileName(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(file.content());
     }
 }

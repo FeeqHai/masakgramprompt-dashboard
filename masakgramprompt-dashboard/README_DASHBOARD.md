@@ -1,103 +1,170 @@
 # MasakGramPrompt Dashboard
 
-This is the Week 06-style Spring Boot dashboard for the project.
+Spring Boot, MySQL, and Thymeleaf dashboard for the BITP 3123 project:
+`Nutritional Analytics from Code-switched Gastronomy Influencer Reels Using Prompt Engineering and Large Language Models`.
 
-## What It Shows Now
-
-- Summary counters for Reels, audio files, transcripts, ground truth, and experiments.
-- The 50 Reel records imported into MySQL.
-- Status badges for audio, transcript, ground truth, and experiment completion.
-- A working `View` button for each Reel.
-- A Reel detail page at `/reels/{id}` showing Reel metadata, audio status, transcript status, and experiment status.
-- A JSON API at `/api/reels`.
-
-## Import Into Eclipse
-
-1. Open Eclipse.
-2. Go to `File > Import`.
-3. Select `Maven > Existing Maven Projects`.
-4. Browse to:
+## Working Directory
 
 ```text
-C:\Users\rafee\Documents\UTeM\DAD\Project Specification-20260618\masakgramprompt-dashboard
+C:\Users\rafee\git\repository\masakgramprompt-dashboard
 ```
 
-5. Click `Finish`.
-6. Right-click the project.
-7. Select `Maven > Update Project`.
-8. Tick `Force Update of Snapshots/Releases`.
-9. Click `OK`.
+## Main Navigation
+
+The dashboard now uses the lecturer-requested review flow:
+
+```text
+/models
+  -> /models/{modelId}/techniques
+  -> /models/{modelId}/techniques/{techniqueId}/reels
+  -> /models/{modelId}/techniques/{techniqueId}/reels/{reelId}/result
+```
+
+Main pages:
+
+- `/models`: choose one of the five LLM models.
+- `/batch`: run one model with one or more prompt techniques.
+- `/performance`: compare runtime and speed using `experiment.processing_time_ms`.
+- `/evaluation`: compare correctness against human ground truth.
+- `/exports`: download the 10 required CSV evaluation files.
+
+The older `/dashboard` and `/reels/{id}` pages are still available as legacy helpers, but the primary review path starts at `/models`.
+
+## Ground Truth Import
+
+A verified import script already exists outside this repo:
+
+```text
+import_ground_truth_into_masakgram_prompt_combined.sql
+```
+
+Import it manually in MySQL Workbench or from a terminal. Do not run destructive SQL from Java startup.
+The import should only affect:
+
+- `ground_truth_reel`
+- `ground_truth_ingredient`
+
+It should not delete or corrupt:
+
+- `reel`
+- `audio_file`
+- `transcript`
+- `experiment`
+- `nutrition_result`
+- `ingredient_result`
+
+Expected counts after import:
+
+- `ground_truth_reel`: 50 rows
+- `ground_truth_ingredient`: 775 rows
+
+Verification SQL was added here:
+
+```text
+data/verify_ground_truth_import.sql
+```
+
+Run it after import to check total counts and ingredient counts for transcripts 1 to 50.
 
 ## Run In Eclipse
 
-1. Open:
-
-```text
-src/main/java/my/utem/ftmk/masakgramprompt/MasakGramPromptDashboardApplication.java
-```
-
-2. Right-click the file.
-3. Select `Run As > Run Configurations`.
-4. Choose the dashboard Java application.
-5. Open the `Environment` tab.
-6. Click Add.
-7. Add this variable:
+1. Open Eclipse.
+2. Select `File > Import`.
+3. Select `Maven > Existing Maven Projects`.
+4. Browse to the working directory above.
+5. Select `Maven > Update Project`.
+6. Add your MySQL password to the run configuration:
 
 ```text
 Name: MASAKGRAM_DB_PASSWORD
 Value: your MySQL password
 ```
 
-
-7. Click `Apply > Run`.
-
-## Open Dashboard
-
-After Spring Boot starts, open:
+7. Run:
 
 ```text
-http://localhost:8080/dashboard
+src/main/java/my/utem/ftmk/masakgramprompt/MasakGramPromptDashboardApplication.java
 ```
 
-API endpoint:
+Then open:
 
 ```text
-http://localhost:8080/api/reels
+http://localhost:8080/models
 ```
 
-## Next Development Step
+## Batch Experiment
 
-## Dataset Sync, Batch Runs, and Excel Export
+Open `/batch`.
 
-The current project `data` folder contains 50 audio files and 50 transcript files.
-When the dashboard starts, it safely synchronizes them into MySQL:
+Use this page for run mode:
 
-```text
-data/audio/<instagram-reel-id>.mp3
-data/transcripts/transcription_<reel-number>.txt
-```
+1. Select one LLM model.
+2. Select one or more prompt techniques.
+3. Keep transcript scope as all imported transcripts.
+4. Click `Run Batch Experiment`.
+5. Watch the live progress section while the batch runs.
 
-The sync inserts missing `audio_file` and `transcript` records. Running it again updates the file metadata and does not delete experiment data.
+The batch runner reuses the existing experiment runner. It only clears and replaces results for the same transcript, model, and prompt-technique combination being rerun.
 
-Before running, set your MySQL password in the Eclipse Run Configuration environment:
+## Result Review
 
-```text
-Name: MASAKGRAM_DB_PASSWORD
-Value: your MySQL root password
-```
+Use `/models` for review mode:
 
-After the dashboard opens:
+1. Choose a model.
+2. Choose a prompt technique.
+3. Choose a reel with a completed result.
+4. Open the reel result page.
 
-1. Select `Sync Data` to re-read the current `data` folder.
-2. Choose one LLM model and one prompt technique in `Batch Experiment`.
-3. Select `Run Batch`.
-4. The system processes every available transcript one at a time, which is safer for a local Ollama model.
-5. Select `Download Excel` to export the current experiment results.
+The result page shows:
 
-The Excel export contains:
+- reel and transcript details
+- selected model and prompt technique
+- processing time
+- ground truth availability and annotator
+- transcript preview with simple Malay cooking-term highlighting
+- ground truth vs AI ingredient comparison
+- nutrition total comparison
+- precision, recall, F1, JSON validity, and hallucination count
+- collapsed raw JSON
+- fact-sheet CSV download
 
-- `Summary`: total experiment, valid JSON, and ingredient counts.
-- `LLM Results`: one row per model and prompt experiment, including nutrition totals and raw LLM JSON.
-- `Extracted Ingredients`: one row per ingredient returned by the LLM.
+## Performance vs Evaluation
 
-Run a separate batch for each model and prompt-technique combination that your team needs to compare.
+`/performance` is for speed and runtime:
+
+- uses `experiment.processing_time_ms`
+- groups results by model and prompt technique
+- calculates average, minimum, and maximum time from completed experiments only
+
+`/evaluation` is for correctness:
+
+- compares `ground_truth_ingredient` against `ingredient_result`
+- calculates ingredient detection precision, recall, and F1
+- calculates nutrition absolute errors
+- tracks JSON validity and possible hallucination rate
+
+Keep these pages separate when explaining the system.
+
+## CSV Exports
+
+Open `/exports` to download:
+
+1. `layer1a_exact_match.csv`
+2. `layer1b_text_similarity.csv`
+3. `layer2a_numeric_quantity.csv`
+4. `layer2b_numeric_nutrition.csv`
+5. `layer2c_nutrition_totals.csv`
+6. `layer3a_json_validity.csv`
+7. `layer3b_hallucination.csv`
+8. `layer3c_ingredient_detection.csv`
+9. `layer4_human_evaluation.csv`
+10. `layer5_condition_scores.csv`
+
+The existing Excel export remains available as an extra helper from `/exports/llm-results.xlsx`.
+
+## Current Limitations
+
+- Video duration and language tag are displayed as `Not available` because those fields are not in the current schema.
+- Matching is intentionally simple: normalized exact match first, then basic contains matching.
+- Hallucination count uses unmatched AI ingredients when no dedicated hallucination column exists.
+- Custom transcript ranges are future work; the batch page currently runs all imported transcripts.

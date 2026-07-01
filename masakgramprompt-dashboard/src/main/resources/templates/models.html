@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Models - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Review Mode</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a class="active" href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <h1>Models</h1>
+                <p>Select one LLM model before reviewing prompt techniques and reel results.</p>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="notice success" th:text="${successMessage}"></div>
+        <div th:if="${errorMessage}" class="notice error" th:text="${errorMessage}"></div>
+
+        <section class="model-grid" aria-label="LLM models">
+            <article class="model-card" th:each="model : ${models}">
+                <div class="model-card-main">
+                    <div>
+                        <h2 th:text="${model.modelName}">Llama 3.2 3B</h2>
+                        <p th:text="${model.description == null ? 'No description stored.' : model.description}">
+                            Model description
+                        </p>
+                    </div>
+                    <span class="badge neutral" th:text="${model.provider}">Provider</span>
+                </div>
+
+                <dl class="compact-meta-grid">
+                    <div>
+                        <dt>Tag</dt>
+                        <dd th:text="${model.modelTag}">model:tag</dd>
+                    </div>
+                    <div>
+                        <dt>Completed</dt>
+                        <dd th:text="${model.status.completed}">0</dd>
+                    </div>
+                    <div>
+                        <dt>Pending/Running</dt>
+                        <dd>
+                            <span th:text="${model.status.pending}">0</span>
+                            <span>/</span>
+                            <span th:text="${model.status.running}">0</span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Failed</dt>
+                        <dd th:text="${model.status.failed}">0</dd>
+                    </div>
+                </dl>
+
+                <a class="small-button action-button"
+                   th:href="@{/models/{modelId}/techniques(modelId=${model.modelId})}">
+                    View Techniques
+                </a>
+            </article>
+        </section>
+
+        <div th:if="${#lists.isEmpty(models)}" class="empty-state">
+            No model records were found in `llm_model`.
+        </div>
+    </main>
+</div>
+</body>
+</html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MasakGramPrompt Dashboard</title>
-    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=8)}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
 </head>
 <body>
 <div class="app-shell">
@@ -17,10 +17,11 @@
         </div>
 
         <nav class="nav">
-            <a class="active" href="/dashboard">Dashboard</a>
-            <a href="#experiments">Batch Run</a>
-            <a href="#performance">Performance</a>
-            <a href="#reels">Reels</a>
+            <a href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
         </nav>
     </aside>
 
@@ -212,7 +213,6 @@
                         <th>Audio</th>
                         <th>Transcript</th>
                         <th>Ground Truth</th>
-                        <th>Experiments</th>
                         <th>Action</th>
                     </tr>
                     </thead>
@@ -239,11 +239,6 @@
                         <td>
                             <span th:class="${reel.hasGroundTruth} ? 'badge ok' : 'badge pending'"
                                   th:text="${reel.hasGroundTruth} ? 'Ready' : 'Pending'">Pending</span>
-                        </td>
-                        <td>
-                            <span class="badge neutral">
-                                <span th:text="${reel.completedExperimentCount}">0</span>/<span th:text="${reel.experimentCount}">0</span>
-                            </span>
                         </td>
                         <td>
                             <a class="small-button" th:href="@{/reels/{id}(id=${reel.reelId})}">View / Run</a>

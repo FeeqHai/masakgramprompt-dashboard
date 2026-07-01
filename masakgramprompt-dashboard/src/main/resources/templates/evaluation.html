@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation - MasakGramPrompt</title>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css(v=9)}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">M</span>
+            <div>
+                <strong>MasakGramPrompt</strong>
+                <span>Accuracy Review</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a href="/models">Models</a>
+            <a href="/batch">Batch Experiment</a>
+            <a href="/performance">Performance</a>
+            <a class="active" href="/evaluation">Evaluation</a>
+            <a href="/exports">Exports</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <h1>Evaluation</h1>
+                <p>Correctness is measured against human ground truth annotations.</p>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Model + Prompt Accuracy</h2>
+                    <p>Performance is speed; evaluation is correctness.</p>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(aggregates)}" class="empty-state">
+                No completed experiment rows are available for evaluation.
+            </div>
+
+            <div th:if="${!#lists.isEmpty(aggregates)}" class="table-wrap">
+                <table class="evaluation-table">
+                    <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Technique</th>
+                        <th>Completed</th>
+                        <th>Avg Precision</th>
+                        <th>Avg Recall</th>
+                        <th>Avg F1</th>
+                        <th>Calorie Error</th>
+                        <th>Protein Error</th>
+                        <th>Fat Error</th>
+                        <th>Carb Error</th>
+                        <th>JSON Validity</th>
+                        <th>Hallucination Count</th>
+                        <th>Hallucination Rate</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="aggregate : ${aggregates}">
+                        <td th:text="${aggregate.modelName}">Model</td>
+                        <td th:text="${aggregate.techniqueName}">Technique</td>
+                        <td th:text="${aggregate.completedExperiments}">0</td>
+                        <td th:text="${aggregate.averagePrecision}">0</td>
+                        <td th:text="${aggregate.averageRecall}">0</td>
+                        <td th:text="${aggregate.averageF1}">0</td>
+                        <td th:text="${aggregate.averageCalorieAbsoluteError}">0</td>
+                        <td th:text="${aggregate.averageProteinAbsoluteError}">0</td>
+                        <td th:text="${aggregate.averageFatAbsoluteError}">0</td>
+                        <td th:text="${aggregate.averageCarbAbsoluteError}">0</td>
+                        <td th:text="${aggregate.jsonValidityRate}">0</td>
+                        <td th:text="${aggregate.hallucinationCount}">0</td>
+                        <td th:text="${aggregate.hallucinationRate}">0</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
